@@ -12,6 +12,7 @@ const STATUS_STYLES: Record<LeadStatus, string> = {
   "On Hold": "bg-neutral-100 text-neutral-500",
   Rejected: "bg-red-50 text-red-700",
   "Rejected by Other Side": "bg-red-50 text-red-700",
+  Hide: "bg-neutral-200 text-neutral-500",
 };
 
 export default function StatusSelect({

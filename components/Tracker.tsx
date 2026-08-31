@@ -11,15 +11,15 @@ export default function Tracker({
   initialLeads: LeadWithRelations[];
 }) {
   const [leads, setLeads] = useState(initialLeads);
-  const [showArchived, setShowArchived] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
   const [loading, setLoading] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  const fetchLeads = useCallback(async (archived: boolean) => {
+  const fetchLeads = useCallback(async (hidden: boolean) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/leads?archived=${archived}`);
+      const res = await fetch(`/api/leads?hidden=${hidden}`);
       const { leads } = await res.json();
       setLeads(leads);
     } finally {
@@ -27,29 +27,25 @@ export default function Tracker({
     }
   }, []);
 
-  async function handleToggleArchived(checked: boolean) {
-    setShowArchived(checked);
+  async function handleViewChange(hidden: boolean) {
+    setShowHidden(hidden);
     setExpandedId(null);
-    await fetchLeads(checked);
+    await fetchLeads(hidden);
   }
 
   async function handleStatusChange(id: string, status: LeadStatus) {
-    setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, status } : l)));
+    setLeads((prev) => {
+      const updated = prev.map((l) => (l.id === id ? { ...l, status } : l));
+      // A status change can move a lead out of the view currently shown
+      // (e.g. hiding it while looking at the active list, or vice versa).
+      return updated.filter((l) => (l.status === "Hide") === showHidden);
+    });
+    setExpandedId((cur) => (cur === id ? null : cur));
     await fetch(`/api/leads/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
-  }
-
-  async function handleArchive(id: string) {
-    await fetch(`/api/leads/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ archived: !showArchived }),
-    });
-    setLeads((prev) => prev.filter((l) => l.id !== id));
-    setExpandedId((cur) => (cur === id ? null : cur));
   }
 
   function handleInteractionAdded(id: string, interaction: Interaction) {
@@ -60,9 +56,13 @@ export default function Tracker({
     );
   }
 
+  function handleLeadUpdated(updated: LeadWithRelations) {
+    setLeads((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
+  }
+
   async function handleLeadCreated(id: string) {
     setModalOpen(false);
-    setShowArchived(false);
+    setShowHidden(false);
     const res = await fetch(`/api/leads/${id}`);
     if (res.ok) {
       const { lead } = await res.json();
@@ -85,22 +85,12 @@ export default function Tracker({
         </button>
       </div>
 
-      <label className="flex items-center gap-2 text-sm text-neutral-600 select-none">
-        <input
-          type="checkbox"
-          checked={showArchived}
-          onChange={(e) => handleToggleArchived(e.target.checked)}
-          className="rounded border-neutral-300 text-rose-500 focus:ring-rose-400"
-        />
-        Show archived leads
-      </label>
-
       <div className="bg-white rounded-xl border border-neutral-200 overflow-x-auto">
         {loading ? (
           <p className="text-center text-sm text-neutral-400 py-10">Loading…</p>
         ) : leads.length === 0 ? (
           <p className="text-center text-sm text-neutral-400 py-10">
-            {showArchived ? "No archived leads." : "No leads yet. Add one to get started."}
+            {showHidden ? "No hidden leads." : "No leads yet. Add one to get started."}
           </p>
         ) : (
           <table className="w-full text-sm">
@@ -123,15 +113,29 @@ export default function Tracker({
                     setExpandedId((cur) => (cur === lead.id ? null : lead.id))
                   }
                   onStatusChange={(status) => handleStatusChange(lead.id, status)}
-                  onArchive={() => handleArchive(lead.id)}
                   onInteractionAdded={(interaction) =>
                     handleInteractionAdded(lead.id, interaction)
                   }
+                  onLeadUpdated={handleLeadUpdated}
                 />
               ))}
             </tbody>
           </table>
         )}
+      </div>
+
+      <div className="flex justify-end">
+        <label className="flex items-center gap-2 text-sm text-neutral-500">
+          View
+          <select
+            value={showHidden ? "hidden" : "active"}
+            onChange={(e) => handleViewChange(e.target.value === "hidden")}
+            className="border border-neutral-300 rounded-md px-2 py-1 text-sm bg-white"
+          >
+            <option value="active">Active leads</option>
+            <option value="hidden">Hidden leads</option>
+          </select>
+        </label>
       </div>
 
       {modalOpen && (

@@ -43,8 +43,19 @@ export async function PATCH(
     patch.status = body.status;
   }
 
-  if ("archived" in body) {
-    patch.archived = Boolean(body.archived);
+  if ("compatibility_score" in body) {
+    patch.compatibility_score =
+      body.compatibility_score === null || body.compatibility_score === ""
+        ? null
+        : Number(body.compatibility_score);
+  }
+
+  if ("is_score_overridden" in body) {
+    patch.is_score_overridden = Boolean(body.is_score_overridden);
+  }
+
+  if ("profile_picture_url" in body) {
+    patch.profile_picture_url = body.profile_picture_url === "" ? null : body.profile_picture_url;
   }
 
   const lead = await updateLead(id, patch);

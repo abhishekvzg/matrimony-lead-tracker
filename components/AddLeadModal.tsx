@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import type { ExtractedLeadFields } from "@/lib/types";
+import type { ExtractedLeadFields, FaceCandidate } from "@/lib/types";
+import { cropImageToFace } from "@/lib/cropImage";
+import LeadFieldsForm, { type ContactDraft } from "./LeadFieldsForm";
+
+type CandidateCrop = { previewUrl: string; blob: Blob };
 
 type Step = "input" | "extracting" | "review" | "saving";
 
@@ -16,26 +20,22 @@ const EMPTY_FIELDS: ExtractedLeadFields = {
   father_occupation: null,
   mother_occupation: null,
   siblings: null,
+  date_of_birth: null,
+  time_of_birth: null,
+  place_of_birth: null,
+  rashi: null,
+  nakshatra: null,
+  nakshatra_padam: null,
+  religion: null,
+  caste: null,
+  gotra: null,
+  weight: null,
+  complexion: null,
+  father_name: null,
+  mother_name: null,
+  address: null,
   other_details: null,
 };
-
-const FIELD_CONFIG: {
-  key: keyof ExtractedLeadFields;
-  label: string;
-  type?: "number" | "textarea";
-}[] = [
-  { key: "name", label: "Name" },
-  { key: "age", label: "Age", type: "number" },
-  { key: "height", label: "Height" },
-  { key: "education", label: "Education" },
-  { key: "profession", label: "Profession" },
-  { key: "location", label: "Location" },
-  { key: "income", label: "Income" },
-  { key: "father_occupation", label: "Father's Occupation" },
-  { key: "mother_occupation", label: "Mother's Occupation" },
-  { key: "siblings", label: "Siblings" },
-  { key: "other_details", label: "Other details", type: "textarea" },
-];
 
 export default function AddLeadModal({
   onClose,
@@ -48,9 +48,12 @@ export default function AddLeadModal({
   const [files, setFiles] = useState<File[]>([]);
   const [text, setText] = useState("");
   const [fields, setFields] = useState<ExtractedLeadFields>(EMPTY_FIELDS);
+  const [contacts, setContacts] = useState<ContactDraft[]>([]);
   const [source, setSource] = useState("");
   const [error, setError] = useState("");
   const [foundKeys, setFoundKeys] = useState<Set<string>>(new Set());
+  const [candidateCrops, setCandidateCrops] = useState<CandidateCrop[]>([]);
+  const [selectedCandidate, setSelectedCandidate] = useState<number | null>(null);
 
   async function handleExtract() {
     if (files.length === 0 && !text.trim()) {
@@ -68,7 +71,7 @@ export default function AddLeadModal({
       if (!res.ok) throw new Error("extract failed");
       const data = await res.json();
 
-      const extracted: ExtractedLeadFields = { ...EMPTY_FIELDS, ...data };
+      const extracted: ExtractedLeadFields = { ...EMPTY_FIELDS, ...data.fields };
       setFields(extracted);
       setFoundKeys(
         new Set(
@@ -77,11 +80,48 @@ export default function AddLeadModal({
             .map(([k]) => k)
         )
       );
+      const extractedContacts: ContactDraft[] = Array.isArray(data.contacts)
+        ? data.contacts.map((c: { label: string | null; phone_number: string }) => ({
+            label: c.label ?? "",
+            phone_number: c.phone_number,
+          }))
+        : [];
+      setContacts(extractedContacts);
+
+      const candidates: FaceCandidate[] = Array.isArray(data.faceCandidates)
+        ? data.faceCandidates
+        : [];
+      candidateCrops.forEach((c) => URL.revokeObjectURL(c.previewUrl));
+      if (candidates.length > 0) {
+        const crops = (
+          await Promise.all(
+            candidates.map(async (c): Promise<CandidateCrop | null> => {
+              const sourceFile = files[c.imageIndex];
+              if (!sourceFile) return null;
+              try {
+                const blob = await cropImageToFace(sourceFile, c.box);
+                return { previewUrl: URL.createObjectURL(blob), blob };
+              } catch {
+                return null;
+              }
+            })
+          )
+        ).filter((c): c is CandidateCrop => c !== null);
+        setCandidateCrops(crops);
+        setSelectedCandidate(crops.length === 1 ? 0 : null);
+      } else {
+        setCandidateCrops([]);
+        setSelectedCandidate(null);
+      }
+
       setStep("review");
     } catch {
       setError("Couldn't read that automatically — fill in what you can below.");
       setFields(EMPTY_FIELDS);
       setFoundKeys(new Set());
+      setContacts([]);
+      setCandidateCrops([]);
+      setSelectedCandidate(null);
       setStep("review");
     }
   }
@@ -92,7 +132,18 @@ export default function AddLeadModal({
     try {
       const formData = new FormData();
       formData.append("fields", JSON.stringify({ ...fields, source: source || null }));
+      formData.append(
+        "contacts",
+        JSON.stringify(
+          contacts
+            .filter((c) => c.phone_number.trim())
+            .map((c) => ({ label: c.label.trim() || null, phone_number: c.phone_number.trim() }))
+        )
+      );
       files.forEach((f) => formData.append("files", f));
+      if (selectedCandidate !== null && candidateCrops[selectedCandidate]) {
+        formData.append("profile_picture", candidateCrops[selectedCandidate].blob, "dp.jpg");
+      }
 
       const res = await fetch("/api/leads", { method: "POST", body: formData });
       if (!res.ok) throw new Error("save failed");
@@ -180,43 +231,52 @@ export default function AddLeadModal({
         {(step === "review" || step === "saving") && (
           <>
             {error && <p className="text-sm text-red-600">{error}</p>}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {FIELD_CONFIG.map(({ key, label, type }) => (
-                <div key={key} className={type === "textarea" ? "sm:col-span-2" : ""}>
-                  <label className="block text-xs font-medium text-neutral-500 mb-1">
-                    {label}
-                    {!foundKeys.has(key) && (
-                      <span className="text-neutral-300 font-normal"> · not found</span>
-                    )}
-                  </label>
-                  {type === "textarea" ? (
-                    <textarea
-                      value={fields[key] ?? ""}
-                      onChange={(e) => updateField(key, e.target.value)}
-                      rows={3}
-                      className="w-full border border-neutral-300 rounded-md px-2.5 py-1.5 text-sm resize-none"
-                    />
-                  ) : (
-                    <input
-                      type={type === "number" ? "number" : "text"}
-                      value={fields[key] ?? ""}
-                      onChange={(e) => updateField(key, e.target.value)}
-                      className="w-full border border-neutral-300 rounded-md px-2.5 py-1.5 text-sm"
-                    />
+            {candidateCrops.length > 0 && (
+              <div>
+                <label className="block text-xs font-medium text-neutral-500 mb-2">
+                  Profile Picture{candidateCrops.length > 1 ? " — pick one" : ""}
+                </label>
+                <div className="flex gap-2 flex-wrap">
+                  {candidateCrops.map((crop, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setSelectedCandidate(i)}
+                      className={`h-16 w-16 rounded-full overflow-hidden border-2 ${
+                        selectedCandidate === i ? "border-rose-500" : "border-transparent"
+                      }`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={crop.previewUrl}
+                        alt={`Candidate ${i + 1}`}
+                        className="h-full w-full object-cover"
+                      />
+                    </button>
+                  ))}
+                  {candidateCrops.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCandidate(null)}
+                      className={`h-16 w-16 rounded-full flex items-center justify-center text-xs text-neutral-500 border-2 ${
+                        selectedCandidate === null ? "border-rose-500" : "border-neutral-200"
+                      }`}
+                    >
+                      None
+                    </button>
                   )}
                 </div>
-              ))}
-              <div>
-                <label className="block text-xs font-medium text-neutral-500 mb-1">Source</label>
-                <input
-                  type="text"
-                  value={source}
-                  onChange={(e) => setSource(e.target.value)}
-                  placeholder="Who shared this lead?"
-                  className="w-full border border-neutral-300 rounded-md px-2.5 py-1.5 text-sm"
-                />
               </div>
-            </div>
+            )}
+            <LeadFieldsForm
+              fields={fields}
+              onFieldChange={updateField}
+              contacts={contacts}
+              onContactsChange={setContacts}
+              source={source}
+              onSourceChange={setSource}
+              foundKeys={foundKeys}
+            />
             <div className="flex gap-2">
               <button
                 onClick={() => setStep("input")}

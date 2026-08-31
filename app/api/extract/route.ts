@@ -22,11 +22,11 @@ export async function POST(request: NextRequest) {
   );
 
   try {
-    const fields = await extractLeadFields({
+    const result = await extractLeadFields({
       images,
       text: typeof text === "string" ? text : undefined,
     });
-    return NextResponse.json(fields);
+    return NextResponse.json(result);
   } catch (err) {
     console.error("Gemini extraction failed", err);
     return NextResponse.json({ error: "Extraction failed" }, { status: 502 });

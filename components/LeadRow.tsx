@@ -3,6 +3,7 @@
 import type { Interaction, LeadStatus, LeadWithRelations } from "@/lib/types";
 import StatusSelect from "./StatusSelect";
 import LeadDetail from "./LeadDetail";
+import Avatar from "./Avatar";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -16,15 +17,15 @@ export default function LeadRow({
   expanded,
   onToggle,
   onStatusChange,
-  onArchive,
   onInteractionAdded,
+  onLeadUpdated,
 }: {
   lead: LeadWithRelations;
   expanded: boolean;
   onToggle: () => void;
   onStatusChange: (status: LeadStatus) => void;
-  onArchive: () => void;
   onInteractionAdded: (interaction: Interaction) => void;
+  onLeadUpdated: (lead: LeadWithRelations) => void;
 }) {
   return (
     <>
@@ -39,6 +40,7 @@ export default function LeadRow({
             >
               ▶
             </span>
+            <Avatar url={lead.profile_picture_url} size={28} />
             <span className="font-medium text-neutral-900">
               {lead.name || <span className="text-neutral-400 italic">Unnamed</span>}
             </span>
@@ -62,8 +64,8 @@ export default function LeadRow({
           <td colSpan={5} className="p-0">
             <LeadDetail
               lead={lead}
-              onArchive={onArchive}
               onInteractionAdded={onInteractionAdded}
+              onLeadUpdated={onLeadUpdated}
             />
           </td>
         </tr>

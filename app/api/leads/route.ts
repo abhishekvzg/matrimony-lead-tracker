@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createLead, listLeadsWithRelations, uploadAttachment } from "@/lib/leads";
+import {
+  createContacts,
+  createLead,
+  listLeadsWithRelations,
+  setProfilePicture,
+  uploadAttachment,
+} from "@/lib/leads";
 import { EXTRACTED_FIELD_KEYS } from "@/lib/types";
 
 export async function GET(request: NextRequest) {
-  const archived = request.nextUrl.searchParams.get("archived") === "true";
-  const leads = await listLeadsWithRelations(archived);
+  const hidden = request.nextUrl.searchParams.get("hidden") === "true";
+  const leads = await listLeadsWithRelations(hidden);
   return NextResponse.json({ leads });
 }
 
@@ -38,9 +44,33 @@ export async function POST(request: NextRequest) {
 
   const lead = await createLead(fields);
 
+  const contactsRaw = formData.get("contacts");
+  if (typeof contactsRaw === "string") {
+    try {
+      const contactsParsed: unknown = JSON.parse(contactsRaw);
+      if (Array.isArray(contactsParsed)) {
+        const contacts = contactsParsed
+          .filter((c): c is Record<string, unknown> => typeof c === "object" && c !== null)
+          .map((c) => ({
+            label: typeof c.label === "string" && c.label.trim() ? c.label.trim() : null,
+            phone_number: typeof c.phone_number === "string" ? c.phone_number.trim() : "",
+          }))
+          .filter((c) => c.phone_number.length > 0);
+        await createContacts(lead.id, contacts);
+      }
+    } catch {
+      // Malformed contacts payload — the lead itself is still created.
+    }
+  }
+
   const files = formData.getAll("files").filter((f): f is File => f instanceof File);
   for (const file of files) {
     if (file.size > 0) await uploadAttachment(lead.id, file);
+  }
+
+  const profilePicture = formData.get("profile_picture");
+  if (profilePicture instanceof File && profilePicture.size > 0) {
+    await setProfilePicture(lead.id, profilePicture);
   }
 
   return NextResponse.json({ id: lead.id }, { status: 201 });
