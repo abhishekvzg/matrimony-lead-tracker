@@ -1,8 +1,7 @@
 "use client";
 
-import type { Interaction, LeadStatus, LeadWithRelations } from "@/lib/types";
+import type { LeadStatus, LeadWithRelations } from "@/lib/types";
 import StatusSelect from "./StatusSelect";
-import LeadDetail from "./LeadDetail";
 import Avatar from "./Avatar";
 
 function formatDate(iso: string) {
@@ -14,62 +13,39 @@ function formatDate(iso: string) {
 
 export default function LeadRow({
   lead,
-  expanded,
-  onToggle,
+  onSelect,
   onStatusChange,
-  onInteractionAdded,
-  onLeadUpdated,
 }: {
   lead: LeadWithRelations;
-  expanded: boolean;
-  onToggle: () => void;
+  onSelect: () => void;
   onStatusChange: (status: LeadStatus) => void;
-  onInteractionAdded: (interaction: Interaction) => void;
-  onLeadUpdated: (lead: LeadWithRelations) => void;
 }) {
   return (
-    <>
-      <tr
-        onClick={onToggle}
-        className="cursor-pointer hover:bg-neutral-50 border-b border-neutral-100 last:border-0"
-      >
-        <td className="py-3 pl-4 pr-2 sm:pl-6">
-          <div className="flex items-center gap-2">
-            <span
-              className={`text-neutral-400 text-xs transition-transform ${expanded ? "rotate-90" : ""}`}
-            >
-              ▶
-            </span>
-            <Avatar url={lead.profile_picture_url} size={28} />
-            <span className="font-medium text-neutral-900">
-              {lead.name || <span className="text-neutral-400 italic">Unnamed</span>}
-            </span>
+    <tr
+      onClick={onSelect}
+      className="cursor-pointer border-b border-(--color-divider) last:border-0 hover:bg-accent-100/40"
+    >
+      <td className="py-3 pr-2 pl-4 sm:pl-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <Avatar name={lead.name} url={lead.profile_picture_url} size={36} />
+          <div className="min-w-0">
+            <div className="truncate font-bold text-ink">
+              {lead.name || <span className="italic text-(--color-label)">Unnamed</span>}
+            </div>
+            <div className="text-[13px] text-(--color-label) sm:hidden">
+              {lead.age ?? "—"} yrs · {lead.location ?? "—"}
+            </div>
           </div>
-        </td>
-        <td className="py-3 px-2 hidden sm:table-cell text-neutral-600">
-          {lead.age ?? "—"}
-        </td>
-        <td className="py-3 px-2 hidden sm:table-cell text-neutral-600">
-          {lead.location ?? "—"}
-        </td>
-        <td className="py-3 px-2">
-          <StatusSelect value={lead.status} onChange={onStatusChange} />
-        </td>
-        <td className="py-3 pl-2 pr-4 sm:pr-6 text-neutral-500 text-sm whitespace-nowrap">
-          {formatDate(lead.updated_at)}
-        </td>
-      </tr>
-      {expanded && (
-        <tr>
-          <td colSpan={5} className="p-0">
-            <LeadDetail
-              lead={lead}
-              onInteractionAdded={onInteractionAdded}
-              onLeadUpdated={onLeadUpdated}
-            />
-          </td>
-        </tr>
-      )}
-    </>
+        </div>
+      </td>
+      <td className="hidden py-3 px-2 text-ink sm:table-cell">{lead.age ?? "—"}</td>
+      <td className="hidden py-3 px-2 text-ink sm:table-cell">{lead.location ?? "—"}</td>
+      <td className="py-3 px-2">
+        <StatusSelect value={lead.status} onChange={onStatusChange} />
+      </td>
+      <td className="py-3 pr-4 pl-2 text-sm whitespace-nowrap text-(--color-label) sm:pr-6">
+        {formatDate(lead.updated_at)}
+      </td>
+    </tr>
   );
 }

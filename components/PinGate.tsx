@@ -1,13 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { TAGLINES } from "@/lib/taglines";
 
 export default function PinGate() {
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [taglineIndex, setTaglineIndex] = useState(0);
   const router = useRouter();
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTaglineIndex((i) => (i + 1) % TAGLINES.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -34,14 +43,18 @@ export default function PinGate() {
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center px-4">
+    <div className="flex flex-1 flex-col items-center justify-center gap-8 px-4 text-center">
+      <div>
+        <h1 className="text-4xl">Lead Tracker</h1>
+        <p className="mt-2 min-h-[22px] text-[15px] text-(--color-label)">
+          {TAGLINES[taglineIndex]}
+        </p>
+      </div>
+
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-xs flex flex-col items-center gap-4"
+        className="flex w-full max-w-xs flex-col items-center gap-4 border-t border-(--color-divider) pt-6"
       >
-        <h1 className="text-lg font-medium text-neutral-800">
-          Enter PIN
-        </h1>
         <input
           type="password"
           inputMode="numeric"
@@ -53,14 +66,14 @@ export default function PinGate() {
             setError("");
             setPin(e.target.value.replace(/\D/g, "").slice(0, 4));
           }}
-          className="w-full text-center text-2xl tracking-[0.5em] border border-neutral-300 rounded-lg py-3 focus:outline-none focus:ring-2 focus:ring-rose-400"
+          className="field-input text-center text-2xl tracking-[0.5em]"
           placeholder="----"
         />
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           type="submit"
           disabled={pin.length !== 4 || loading}
-          className="w-full bg-rose-500 disabled:bg-neutral-300 text-white rounded-lg py-2.5 font-medium transition-colors hover:bg-rose-600 disabled:hover:bg-neutral-300"
+          className="btn btn-primary w-full"
         >
           {loading ? "Checking…" : "Unlock"}
         </button>

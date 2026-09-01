@@ -239,10 +239,10 @@ export default function EditLeadForm({
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="flex items-center gap-3">
-        <Avatar url={lead.profile_picture_url} size={56} />
+        <Avatar url={lead.profile_picture_url} name={lead.name} size={56} />
         <div className="flex flex-col gap-1">
           <div className="flex gap-2">
-            <label className="text-xs font-medium text-rose-600 hover:text-rose-700 cursor-pointer">
+            <label className="cursor-pointer text-xs font-medium text-accent-700 hover:text-accent-900">
               {lead.profile_picture_url ? "Replace photo" : "Add photo"}
               <input
                 type="file"
@@ -261,7 +261,7 @@ export default function EditLeadForm({
                 type="button"
                 onClick={handleDetectFromAttachments}
                 disabled={avatarBusy}
-                className="text-xs font-medium text-rose-600 hover:text-rose-700 disabled:opacity-50"
+                className="text-xs font-medium text-accent-700 hover:text-accent-900 disabled:opacity-50"
               >
                 Detect from photos
               </button>
@@ -271,23 +271,23 @@ export default function EditLeadForm({
                 type="button"
                 onClick={handleRemoveAvatar}
                 disabled={avatarBusy}
-                className="text-xs font-medium text-neutral-500 hover:text-red-600 disabled:opacity-50"
+                className="text-xs font-medium text-(--color-label) hover:text-red-600 disabled:opacity-50"
               >
                 Remove
               </button>
             )}
           </div>
-          {avatarBusy && <p className="text-xs text-neutral-400">Working…</p>}
+          {avatarBusy && <p className="text-xs text-(--color-label)">Working…</p>}
           {avatarError && <p className="text-xs text-red-600">{avatarError}</p>}
           {dpCandidates && (
-            <div className="flex gap-2 flex-wrap mt-1">
+            <div className="mt-1 flex flex-wrap gap-2">
               {dpCandidates.map((c) => (
                 <button
                   key={c.index}
                   type="button"
                   onClick={() => handleChooseCandidate(c.dataUrl)}
                   disabled={avatarBusy}
-                  className="h-12 w-12 rounded-full overflow-hidden border-2 border-transparent hover:border-rose-500"
+                  className="h-12 w-12 overflow-hidden rounded-full border-2 border-transparent hover:border-accent"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -315,7 +315,7 @@ export default function EditLeadForm({
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="flex-1 border border-neutral-300 text-neutral-700 font-medium rounded-lg py-2.5 hover:bg-neutral-50 disabled:opacity-50 transition-colors"
+          className="btn btn-secondary flex-1"
         >
           Cancel
         </button>
@@ -323,7 +323,7 @@ export default function EditLeadForm({
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="flex-1 bg-rose-500 hover:bg-rose-600 disabled:bg-neutral-300 text-white font-medium rounded-lg py-2.5 transition-colors"
+          className="btn btn-primary flex-1"
         >
           {saving ? "Saving…" : "Save"}
         </button>

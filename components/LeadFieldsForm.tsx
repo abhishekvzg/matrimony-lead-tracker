@@ -64,13 +64,13 @@ export default function LeadFieldsForm({
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {LEAD_FIELD_CONFIG.map(({ key, label, type, options }) => (
           <div key={key} className={type === "textarea" ? "sm:col-span-2" : ""}>
-            <label className="block text-xs font-medium text-neutral-500 mb-1">
+            <label className="mb-1 block text-xs font-medium text-(--color-label)">
               {label}
               {foundKeys && !foundKeys.has(key) && (
-                <span className="text-neutral-300 font-normal"> · not found</span>
+                <span className="font-normal text-(--color-label) opacity-60"> · not found</span>
               )}
             </label>
             {type === "textarea" ? (
@@ -78,13 +78,13 @@ export default function LeadFieldsForm({
                 value={fields[key] ?? ""}
                 onChange={(e) => onFieldChange(key, e.target.value)}
                 rows={3}
-                className="w-full border border-neutral-300 rounded-md px-2.5 py-1.5 text-sm resize-none"
+                className="field-input resize-none"
               />
             ) : type === "select" ? (
               <select
                 value={fields[key] ?? ""}
                 onChange={(e) => onFieldChange(key, e.target.value)}
-                className="w-full border border-neutral-300 rounded-md px-2.5 py-1.5 text-sm bg-white"
+                className="field-input"
               >
                 <option value="">—</option>
                 {options?.map((opt) => (
@@ -98,25 +98,27 @@ export default function LeadFieldsForm({
                 type={type === "number" ? "number" : type === "date" ? "date" : "text"}
                 value={fields[key] ?? ""}
                 onChange={(e) => onFieldChange(key, e.target.value)}
-                className="w-full border border-neutral-300 rounded-md px-2.5 py-1.5 text-sm"
+                className="field-input"
               />
             )}
           </div>
         ))}
         <div>
-          <label className="block text-xs font-medium text-neutral-500 mb-1">Source</label>
+          <label className="mb-1 block text-xs font-medium text-(--color-label)">Source</label>
           <input
             type="text"
             value={source}
             onChange={(e) => onSourceChange(e.target.value)}
             placeholder="Who shared this lead?"
-            className="w-full border border-neutral-300 rounded-md px-2.5 py-1.5 text-sm"
+            className="field-input"
           />
         </div>
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-neutral-500 mb-2">Contact numbers</label>
+        <label className="mb-2 block text-xs font-medium text-(--color-label)">
+          Contact numbers
+        </label>
         <div className="flex flex-col gap-2">
           {contacts.map((contact, i) => (
             <div key={contact.id ?? `new-${i}`} className="flex gap-2">
@@ -125,20 +127,20 @@ export default function LeadFieldsForm({
                 value={contact.label}
                 onChange={(e) => updateContact(i, { label: e.target.value })}
                 placeholder="Label (e.g. Father)"
-                className="w-2/5 border border-neutral-300 rounded-md px-2.5 py-1.5 text-sm"
+                className="field-input w-2/5"
               />
               <input
                 type="tel"
                 value={contact.phone_number}
                 onChange={(e) => updateContact(i, { phone_number: e.target.value })}
                 placeholder="Phone number"
-                className="flex-1 border border-neutral-300 rounded-md px-2.5 py-1.5 text-sm"
+                className="field-input flex-1"
               />
               <button
                 type="button"
                 onClick={() => removeContact(i)}
                 aria-label="Remove contact"
-                className="text-neutral-400 hover:text-red-600 px-1"
+                className="px-1 text-(--color-label) hover:text-red-600"
               >
                 &times;
               </button>
@@ -147,7 +149,7 @@ export default function LeadFieldsForm({
           <button
             type="button"
             onClick={() => onContactsChange([...contacts, { label: "", phone_number: "" }])}
-            className="self-start text-sm text-rose-600 hover:text-rose-700 font-medium"
+            className="self-start text-sm font-medium text-accent-700 hover:text-accent-900"
           >
             + Add contact
           </button>

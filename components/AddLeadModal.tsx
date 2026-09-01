@@ -163,138 +163,130 @@ export default function AddLeadModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-40 bg-black/40 flex items-start sm:items-center justify-center p-3 sm:p-6 overflow-y-auto"
-      onClick={onClose}
-    >
+    <div className="dialog-backdrop" onClick={onClose}>
       <div
-        className="bg-white rounded-xl w-full max-w-lg my-6 sm:my-0 p-5 sm:p-6 flex flex-col gap-4 max-h-[90vh] overflow-y-auto"
+        className="dialog-panel max-w-lg"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-neutral-900">Add New Lead</h2>
+        <div className="flex items-center justify-between text-lg">
+          <span>Add a new lead</span>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="text-neutral-400 hover:text-neutral-600 text-xl leading-none"
+            className="btn btn-ghost px-2 text-lg leading-none"
           >
             &times;
           </button>
         </div>
 
-        {step === "input" && (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">
-                Screenshot(s)
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
-                className="block w-full text-sm text-neutral-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-rose-50 file:text-rose-600 file:text-sm file:font-medium hover:file:bg-rose-100"
-              />
-              {files.length > 0 && (
-                <p className="text-xs text-neutral-500 mt-1">{files.length} file(s) selected</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">
-                Or paste text
-              </label>
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                rows={5}
-                placeholder="Paste the bio-data text here…"
-                className="w-full border border-neutral-300 rounded-md px-3 py-2 text-sm resize-none"
-              />
-            </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <button
-              onClick={handleExtract}
-              className="bg-rose-500 hover:bg-rose-600 text-white font-medium rounded-lg py-2.5 transition-colors"
-            >
-              Extract Details
-            </button>
-          </>
-        )}
-
-        {step === "extracting" && (
-          <div className="py-10 flex flex-col items-center gap-3">
-            <div className="h-6 w-6 border-2 border-rose-300 border-t-rose-500 rounded-full animate-spin" />
-            <p className="text-sm text-neutral-500">Reading the bio-data…</p>
-          </div>
-        )}
-
-        {(step === "review" || step === "saving") && (
-          <>
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            {candidateCrops.length > 0 && (
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto">
+          {step === "input" && (
+            <>
               <div>
-                <label className="block text-xs font-medium text-neutral-500 mb-2">
-                  Profile Picture{candidateCrops.length > 1 ? " — pick one" : ""}
-                </label>
-                <div className="flex gap-2 flex-wrap">
-                  {candidateCrops.map((crop, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setSelectedCandidate(i)}
-                      className={`h-16 w-16 rounded-full overflow-hidden border-2 ${
-                        selectedCandidate === i ? "border-rose-500" : "border-transparent"
-                      }`}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={crop.previewUrl}
-                        alt={`Candidate ${i + 1}`}
-                        className="h-full w-full object-cover"
-                      />
-                    </button>
-                  ))}
-                  {candidateCrops.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedCandidate(null)}
-                      className={`h-16 w-16 rounded-full flex items-center justify-center text-xs text-neutral-500 border-2 ${
-                        selectedCandidate === null ? "border-rose-500" : "border-neutral-200"
-                      }`}
-                    >
-                      None
-                    </button>
-                  )}
-                </div>
+                <label className="mb-1 block text-sm font-medium text-ink">Screenshot(s)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+                  className="block w-full text-sm text-(--color-label) file:mr-3 file:rounded-md file:border-0 file:bg-accent-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-accent-700 hover:file:bg-accent-200"
+                />
+                {files.length > 0 && (
+                  <p className="mt-1 text-xs text-(--color-label)">{files.length} file(s) selected</p>
+                )}
               </div>
-            )}
-            <LeadFieldsForm
-              fields={fields}
-              onFieldChange={updateField}
-              contacts={contacts}
-              onContactsChange={setContacts}
-              source={source}
-              onSourceChange={setSource}
-              foundKeys={foundKeys}
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={() => setStep("input")}
-                disabled={step === "saving"}
-                className="flex-1 border border-neutral-300 text-neutral-700 font-medium rounded-lg py-2.5 hover:bg-neutral-50 disabled:opacity-50 transition-colors"
-              >
-                Back
+              <div>
+                <label className="mb-1 block text-sm font-medium text-ink">Or paste text</label>
+                <textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  rows={5}
+                  placeholder="Paste the bio-data text here…"
+                  className="field-input resize-none"
+                />
+              </div>
+              {error && <p className="text-sm text-red-600">{error}</p>}
+              <button onClick={handleExtract} className="btn btn-primary">
+                Extract Details
               </button>
-              <button
-                onClick={handleSave}
-                disabled={step === "saving"}
-                className="flex-1 bg-rose-500 hover:bg-rose-600 disabled:bg-neutral-300 text-white font-medium rounded-lg py-2.5 transition-colors"
-              >
-                {step === "saving" ? "Saving…" : "Save Lead"}
-              </button>
+            </>
+          )}
+
+          {step === "extracting" && (
+            <div className="flex flex-col items-center gap-3 py-10">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent-300 border-t-accent-600" />
+              <p className="text-sm text-(--color-label)">Reading the bio-data…</p>
             </div>
-          </>
-        )}
+          )}
+
+          {(step === "review" || step === "saving") && (
+            <>
+              {error && <p className="text-sm text-red-600">{error}</p>}
+              {candidateCrops.length > 0 && (
+                <div>
+                  <label className="mb-2 block text-xs font-medium text-(--color-label)">
+                    Profile Picture{candidateCrops.length > 1 ? " — pick one" : ""}
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {candidateCrops.map((crop, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setSelectedCandidate(i)}
+                        className={`h-16 w-16 overflow-hidden rounded-full border-2 ${
+                          selectedCandidate === i ? "border-accent" : "border-transparent"
+                        }`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={crop.previewUrl}
+                          alt={`Candidate ${i + 1}`}
+                          className="h-full w-full object-cover"
+                        />
+                      </button>
+                    ))}
+                    {candidateCrops.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCandidate(null)}
+                        className={`flex h-16 w-16 items-center justify-center rounded-full border-2 text-xs text-(--color-label) ${
+                          selectedCandidate === null ? "border-accent" : "border-(--color-divider)"
+                        }`}
+                      >
+                        None
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+              <LeadFieldsForm
+                fields={fields}
+                onFieldChange={updateField}
+                contacts={contacts}
+                onContactsChange={setContacts}
+                source={source}
+                onSourceChange={setSource}
+                foundKeys={foundKeys}
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setStep("input")}
+                  disabled={step === "saving"}
+                  className="btn btn-secondary flex-1"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={step === "saving"}
+                  className="btn btn-primary flex-1"
+                >
+                  {step === "saving" ? "Saving…" : "Save Lead"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
