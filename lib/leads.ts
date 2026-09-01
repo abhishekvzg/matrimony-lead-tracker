@@ -1,5 +1,6 @@
 import "server-only";
 import { supabaseAdmin, LEAD_ATTACHMENTS_BUCKET } from "./supabase";
+import { calculateAge } from "./age";
 import { getPadamOptions, lookupCompatibilityScore } from "./nakshatra";
 import type {
   Attachment,
@@ -56,6 +57,7 @@ async function attachRelations(lead: RawLead): Promise<LeadWithRelations> {
   ]);
   return {
     ...lead,
+    age: lead.date_of_birth ? calculateAge(lead.date_of_birth) : lead.age,
     attachments,
     interactions: lead.interactions ?? [],
     contacts: lead.contacts ?? [],

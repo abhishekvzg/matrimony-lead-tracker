@@ -8,6 +8,7 @@ import EditLeadForm from "./EditLeadForm";
 import Avatar from "./Avatar";
 
 type DisplayFieldKey =
+  | "age"
   | "height"
   | "weight"
   | "complexion"
@@ -26,10 +27,11 @@ type DisplayFieldKey =
   | "source";
 
 const PERSONAL_FIELDS: { key: DisplayFieldKey; label: string }[] = [
+  { key: "date_of_birth", label: "Date of Birth" },
+  { key: "age", label: "Age" },
   { key: "height", label: "Height" },
   { key: "weight", label: "Weight" },
   { key: "complexion", label: "Complexion" },
-  { key: "date_of_birth", label: "Date of Birth" },
   { key: "time_of_birth", label: "Time of Birth" },
   { key: "place_of_birth", label: "Place of Birth" },
   { key: "income", label: "Income" },
@@ -88,7 +90,12 @@ function FieldGrid({
       <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
         {fields.map(({ key, label }) => {
           const raw = lead[key];
-          const value = key === "date_of_birth" && raw ? formatDateOnly(raw) : raw;
+          const value =
+            key === "date_of_birth" && raw
+              ? formatDateOnly(raw as string)
+              : key === "age" && typeof raw === "number"
+                ? `${raw} yrs`
+                : raw;
           return (
             <div key={key}>
               <span className="text-(--color-label)">{label}</span>{" "}

@@ -1,6 +1,7 @@
 "use client";
 
 import { NAKSHATRAS, NAKSHATRA_PADAMS, type ExtractedLeadFields } from "@/lib/types";
+import { calculateAge } from "@/lib/age";
 
 export type ContactDraft = { id?: string; label: string; phone_number: string };
 
@@ -65,15 +66,29 @@ export default function LeadFieldsForm({
   return (
     <>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {LEAD_FIELD_CONFIG.map(({ key, label, type, options }) => (
+        {LEAD_FIELD_CONFIG.map(({ key, label, type, options }) => {
+          const derivedAge =
+            key === "age" && fields.date_of_birth ? calculateAge(fields.date_of_birth) : null;
+
+          return (
           <div key={key} className={type === "textarea" ? "sm:col-span-2" : ""}>
             <label className="mb-1 block text-xs font-medium text-(--color-label)">
               {label}
+              {derivedAge !== null && (
+                <span className="font-normal text-(--color-label) opacity-60"> · from DOB</span>
+              )}
               {foundKeys && !foundKeys.has(key) && (
                 <span className="font-normal text-(--color-label) opacity-60"> · not found</span>
               )}
             </label>
-            {type === "textarea" ? (
+            {derivedAge !== null ? (
+              <input
+                type="number"
+                value={derivedAge}
+                disabled
+                className="field-input opacity-70"
+              />
+            ) : type === "textarea" ? (
               <textarea
                 value={fields[key] ?? ""}
                 onChange={(e) => onFieldChange(key, e.target.value)}
@@ -102,7 +117,8 @@ export default function LeadFieldsForm({
               />
             )}
           </div>
-        ))}
+          );
+        })}
         <div>
           <label className="mb-1 block text-xs font-medium text-(--color-label)">Source</label>
           <input
