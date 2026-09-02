@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { detectFaces } from "@/lib/gemini";
 
+// A Gemini call against a full-size image can outrun the platform's
+// default 10s timeout; this was causing intermittent upload failures.
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const imageFiles = formData.getAll("images").filter((f): f is File => f instanceof File);

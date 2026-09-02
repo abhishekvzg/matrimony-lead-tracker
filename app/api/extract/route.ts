@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { extractLeadFields } from "@/lib/gemini";
 
+// Two Gemini calls run against full-size images here; the platform default
+// of 10s is too tight and was causing intermittent timeouts on upload.
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const text = formData.get("text");

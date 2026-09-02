@@ -9,6 +9,11 @@ import {
 } from "@/lib/leads";
 import { EXTRACTED_FIELD_KEYS } from "@/lib/types";
 
+// POST uploads attachments and the profile picture to Supabase Storage
+// sequentially, which can add up past the platform's default 10s timeout
+// when a lead has several screenshots.
+export const maxDuration = 60;
+
 export async function GET(request: NextRequest) {
   const hidden = request.nextUrl.searchParams.get("hidden") === "true";
   const leads = await listLeadsWithRelations(hidden);

@@ -4,6 +4,10 @@ import { detectFaces } from "@/lib/gemini";
 import { cropBufferToFace } from "@/lib/serverCrop";
 import { setProfilePictureFromBuffer } from "@/lib/leads";
 
+// Downloads every attachment, runs a Gemini face-detection call, then crops
+// server-side — easily past the platform's default 10s timeout.
+export const maxDuration = 60;
+
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
