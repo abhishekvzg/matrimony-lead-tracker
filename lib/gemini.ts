@@ -1,5 +1,5 @@
 import "server-only";
-import { GoogleGenAI, createPartFromBase64, createUserContent } from "@google/genai";
+import { ApiError, GoogleGenAI, createPartFromBase64, createUserContent } from "@google/genai";
 import {
   EXTRACTED_FIELD_KEYS,
   NAKSHATRAS,
@@ -9,6 +9,27 @@ import {
   type ExtractionResult,
   type FaceCandidate,
 } from "./types";
+
+// Gemini intermittently returns 503 ("model overloaded") or 429 (rate
+// limited) — both are transient, so retry with backoff instead of failing
+// the whole upload on a blip the next attempt would've sailed through.
+const RETRYABLE_STATUS_CODES = new Set([429, 503]);
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withRetry<T>(fn: () => Promise<T>, retries = 3, baseDelayMs = 1000): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const retryable = err instanceof ApiError && RETRYABLE_STATUS_CODES.has(err.status);
+      if (!retryable || attempt >= retries) throw err;
+      await sleep(baseDelayMs * 2 ** attempt);
+    }
+  }
+}
 
 const FACE_DETECTION_PROMPT = `You will be given one or more images, indexed starting at 0 in the order provided.
 Detect every human face that appears in each image (a real photo of a person — not a
@@ -100,11 +121,13 @@ export async function extractLeadFields(input: {
   }
 
   const [response, faceCandidates] = await Promise.all([
-    getClient().models.generateContent({
-      model: "gemini-3.6-flash",
-      contents: createUserContent(parts),
-      config: { responseMimeType: "application/json" },
-    }),
+    withRetry(() =>
+      getClient().models.generateContent({
+        model: "gemini-3.6-flash",
+        contents: createUserContent(parts),
+        config: { responseMimeType: "application/json" },
+      })
+    ),
     detectFaces(input.images).catch(() => []),
   ]);
 
@@ -157,11 +180,13 @@ export async function detectFaces(
     ...images.map((image) => createPartFromBase64(image.base64, image.mimeType)),
   ];
 
-  const response = await getClient().models.generateContent({
-    model: "gemini-3.6-flash",
-    contents: createUserContent(parts),
-    config: { responseMimeType: "application/json" },
-  });
+  const response = await withRetry(() =>
+    getClient().models.generateContent({
+      model: "gemini-3.6-flash",
+      contents: createUserContent(parts),
+      config: { responseMimeType: "application/json" },
+    })
+  );
 
   const text = response.text;
   if (!text) return [];
