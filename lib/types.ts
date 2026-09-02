@@ -16,6 +16,9 @@ export const SPOKE_BY_OPTIONS = ["Surya", "Sireesha", "Sruthi", "Abhishek"] as c
 
 export type SpokeBy = (typeof SPOKE_BY_OPTIONS)[number];
 
+export const GEMINI_QUOTA_MESSAGE =
+  "Gemini's free daily limit has been used up for today — try again tomorrow.";
+
 // Canonical nakshatra vocabulary, spelled the way this family's biodata
 // documents and nakshatra_scores table use them. Extraction is instructed
 // to normalize alternate spellings (Ardra/Chitra/Swati/etc.) into these

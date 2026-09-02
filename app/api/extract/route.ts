@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { extractLeadFields } from "@/lib/gemini";
+import { extractLeadFields, GeminiQuotaExceededError } from "@/lib/gemini";
 
 // Two Gemini calls run against full-size images here; the platform default
 // of 10s is too tight and was causing intermittent timeouts on upload.
@@ -33,6 +33,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
   } catch (err) {
     console.error("Gemini extraction failed", err);
+    if (err instanceof GeminiQuotaExceededError) {
+      return NextResponse.json({ error: err.message, quotaExceeded: true }, { status: 429 });
+    }
     return NextResponse.json({ error: "Extraction failed" }, { status: 502 });
   }
 }

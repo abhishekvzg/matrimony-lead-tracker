@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin, LEAD_ATTACHMENTS_BUCKET } from "@/lib/supabase";
-import { detectFaces } from "@/lib/gemini";
+import { detectFaces, GeminiQuotaExceededError } from "@/lib/gemini";
 import { cropBufferToFace } from "@/lib/serverCrop";
 import { setProfilePictureFromBuffer } from "@/lib/leads";
 
@@ -40,9 +40,18 @@ export async function POST(
     return NextResponse.json({ status: "none" });
   }
 
-  const faceCandidates = await detectFaces(
-    images.map((img) => ({ base64: img.buffer.toString("base64"), mimeType: img.mimeType }))
-  );
+  let faceCandidates;
+  try {
+    faceCandidates = await detectFaces(
+      images.map((img) => ({ base64: img.buffer.toString("base64"), mimeType: img.mimeType }))
+    );
+  } catch (err) {
+    console.error("Face detection failed", err);
+    if (err instanceof GeminiQuotaExceededError) {
+      return NextResponse.json({ error: err.message, quotaExceeded: true }, { status: 429 });
+    }
+    return NextResponse.json({ error: "Detection failed" }, { status: 502 });
+  }
 
   if (faceCandidates.length === 0) {
     return NextResponse.json({ status: "none" });

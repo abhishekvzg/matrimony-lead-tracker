@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import type { ExtractedLeadFields, FaceCandidate, LeadWithRelations } from "@/lib/types";
+import {
+  GEMINI_QUOTA_MESSAGE,
+  type ExtractedLeadFields,
+  type FaceCandidate,
+  type LeadWithRelations,
+} from "@/lib/types";
 import { cropImageToFace } from "@/lib/cropImage";
 import LeadFieldsForm, { type ContactDraft } from "./LeadFieldsForm";
 import Avatar from "./Avatar";
@@ -106,7 +111,10 @@ export default function EditLeadForm({
       const detectForm = new FormData();
       detectForm.append("images", file);
       const detectRes = await fetch("/api/detect-face", { method: "POST", body: detectForm });
-      if (!detectRes.ok) throw new Error("detect failed");
+      if (!detectRes.ok) {
+        const body = await detectRes.json().catch(() => null);
+        throw new Error(body?.quotaExceeded ? "quota" : "detect failed");
+      }
       const { faceCandidates } = (await detectRes.json()) as { faceCandidates: FaceCandidate[] };
 
       if (faceCandidates.length === 0) {
@@ -126,8 +134,12 @@ export default function EditLeadForm({
       if (!uploadRes.ok) throw new Error("upload failed");
 
       await refreshLead();
-    } catch {
-      setAvatarError("Couldn't update the photo. Try again.");
+    } catch (err) {
+      setAvatarError(
+        err instanceof Error && err.message === "quota"
+          ? GEMINI_QUOTA_MESSAGE
+          : "Couldn't update the photo. Try again."
+      );
     } finally {
       setAvatarBusy(false);
     }
@@ -141,8 +153,10 @@ export default function EditLeadForm({
       const res = await fetch(`/api/leads/${lead.id}/detect-dp-from-attachments`, {
         method: "POST",
       });
-      if (!res.ok) throw new Error("detect failed");
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.quotaExceeded ? "quota" : "detect failed");
+      }
 
       if (data.status === "none") {
         setAvatarError("No face found in the uploaded photos.");
@@ -151,8 +165,12 @@ export default function EditLeadForm({
       } else if (data.status === "choose") {
         setDpCandidates(data.candidates);
       }
-    } catch {
-      setAvatarError("Couldn't scan the photos. Try again.");
+    } catch (err) {
+      setAvatarError(
+        err instanceof Error && err.message === "quota"
+          ? GEMINI_QUOTA_MESSAGE
+          : "Couldn't scan the photos. Try again."
+      );
     } finally {
       setAvatarBusy(false);
     }

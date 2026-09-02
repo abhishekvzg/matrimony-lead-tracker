@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ExtractedLeadFields, FaceCandidate } from "@/lib/types";
+import { GEMINI_QUOTA_MESSAGE, type ExtractedLeadFields, type FaceCandidate } from "@/lib/types";
 import { cropImageToFace } from "@/lib/cropImage";
 import LeadFieldsForm, { type ContactDraft } from "./LeadFieldsForm";
 
@@ -68,7 +68,10 @@ export default function AddLeadModal({
       if (text.trim()) formData.append("text", text.trim());
 
       const res = await fetch("/api/extract", { method: "POST", body: formData });
-      if (!res.ok) throw new Error("extract failed");
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.quotaExceeded ? "quota" : "extract failed");
+      }
       const data = await res.json();
 
       const extracted: ExtractedLeadFields = { ...EMPTY_FIELDS, ...data.fields };
@@ -115,8 +118,12 @@ export default function AddLeadModal({
       }
 
       setStep("review");
-    } catch {
-      setError("Couldn't read that automatically — fill in what you can below.");
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message === "quota"
+          ? `${GEMINI_QUOTA_MESSAGE} Fill in what you can manually below.`
+          : "Couldn't read that automatically — fill in what you can below."
+      );
       setFields(EMPTY_FIELDS);
       setFoundKeys(new Set());
       setContacts([]);

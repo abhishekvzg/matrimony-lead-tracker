@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { detectFaces } from "@/lib/gemini";
+import { detectFaces, GeminiQuotaExceededError } from "@/lib/gemini";
 
 // A Gemini call against a full-size image can outrun the platform's
 // default 10s timeout; this was causing intermittent upload failures.
@@ -26,6 +26,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ faceCandidates });
   } catch (err) {
     console.error("Face detection failed", err);
+    if (err instanceof GeminiQuotaExceededError) {
+      return NextResponse.json({ error: err.message, quotaExceeded: true }, { status: 429 });
+    }
     return NextResponse.json({ error: "Detection failed" }, { status: 502 });
   }
 }

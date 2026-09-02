@@ -17,6 +17,20 @@ import {
 const RETRYABLE_STATUS_CODES = new Set([429, 503]);
 const ATTEMPT_TIMEOUT_MS = 15000;
 
+// The free tier caps this API key at a small number of requests *per day*,
+// not per minute — retrying that is pointless until the daily window
+// resets, so it gets its own error type callers can show a real message for.
+export class GeminiQuotaExceededError extends Error {
+  constructor() {
+    super("Gemini's free daily limit has been used up for today.");
+    this.name = "GeminiQuotaExceededError";
+  }
+}
+
+function isDailyQuotaError(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 429 && /PerDay/i.test(err.message);
+}
+
 function isRetryableGeminiError(err: unknown): boolean {
   if (err instanceof ApiError) return RETRYABLE_STATUS_CODES.has(err.status);
   if (err instanceof Error) return err.name === "TimeoutError" || err.name === "AbortError";
@@ -32,6 +46,7 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 2, baseDelayMs = 100
     try {
       return await fn();
     } catch (err) {
+      if (isDailyQuotaError(err)) throw new GeminiQuotaExceededError();
       if (!isRetryableGeminiError(err) || attempt >= retries) throw err;
       await sleep(baseDelayMs * 2 ** attempt);
     }
