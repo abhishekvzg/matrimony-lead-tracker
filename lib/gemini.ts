@@ -11,21 +11,28 @@ import {
 } from "./types";
 
 // Gemini intermittently returns 503 ("model overloaded") or 429 (rate
-// limited) — both are transient, so retry with backoff instead of failing
-// the whole upload on a blip the next attempt would've sailed through.
+// limited) — both transient — and under sustained overload a single call
+// can also just hang. Retry on all three, but cap each attempt so a stuck
+// call can't by itself burn the route's whole maxDuration budget.
 const RETRYABLE_STATUS_CODES = new Set([429, 503]);
+const ATTEMPT_TIMEOUT_MS = 15000;
+
+function isRetryableGeminiError(err: unknown): boolean {
+  if (err instanceof ApiError) return RETRYABLE_STATUS_CODES.has(err.status);
+  if (err instanceof Error) return err.name === "TimeoutError" || err.name === "AbortError";
+  return false;
+}
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function withRetry<T>(fn: () => Promise<T>, retries = 3, baseDelayMs = 1000): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, retries = 2, baseDelayMs = 1000): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
       return await fn();
     } catch (err) {
-      const retryable = err instanceof ApiError && RETRYABLE_STATUS_CODES.has(err.status);
-      if (!retryable || attempt >= retries) throw err;
+      if (!isRetryableGeminiError(err) || attempt >= retries) throw err;
       await sleep(baseDelayMs * 2 ** attempt);
     }
   }
@@ -125,7 +132,10 @@ export async function extractLeadFields(input: {
       getClient().models.generateContent({
         model: "gemini-3.6-flash",
         contents: createUserContent(parts),
-        config: { responseMimeType: "application/json" },
+        config: {
+          responseMimeType: "application/json",
+          abortSignal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
+        },
       })
     ),
     detectFaces(input.images).catch(() => []),
@@ -184,7 +194,10 @@ export async function detectFaces(
     getClient().models.generateContent({
       model: "gemini-3.6-flash",
       contents: createUserContent(parts),
-      config: { responseMimeType: "application/json" },
+      config: {
+        responseMimeType: "application/json",
+        abortSignal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
+      },
     })
   );
 
