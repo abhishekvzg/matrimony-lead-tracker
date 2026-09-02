@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
-import type { Interaction, LeadStatus, LeadWithRelations, SpokeBy } from "@/lib/types";
+import { SPOKE_BY_OPTIONS, type Interaction, type LeadStatus, type LeadWithRelations, type SpokeBy } from "@/lib/types";
 import { TAGLINES } from "@/lib/taglines";
 import { PosterContext } from "@/lib/posterContext";
 import LeadRow from "./LeadRow";
@@ -22,7 +22,12 @@ function subscribeToPoster(callback: () => void) {
 }
 
 function getPosterSnapshot(): SpokeBy | null {
-  return localStorage.getItem(POSTER_STORAGE_KEY) as SpokeBy | null;
+  const stored = localStorage.getItem(POSTER_STORAGE_KEY);
+  // Guards against a name saved by an older build (e.g. "Dad", "You") that
+  // no longer matches the current roster — falls back to re-picking.
+  return stored && (SPOKE_BY_OPTIONS as readonly string[]).includes(stored)
+    ? (stored as SpokeBy)
+    : null;
 }
 
 function getPosterServerSnapshot(): SpokeBy | null {
@@ -97,10 +102,10 @@ export default function Tracker({
     });
   }
 
-  function handleInteractionAdded(id: string, interaction: Interaction) {
+  function handleInteractionAdded(id: string, interaction: Interaction, status: LeadStatus) {
     setLeads((prev) =>
       prev.map((l) =>
-        l.id === id ? { ...l, interactions: [interaction, ...l.interactions] } : l
+        l.id === id ? { ...l, interactions: [interaction, ...l.interactions], status } : l
       )
     );
   }
@@ -160,7 +165,7 @@ export default function Tracker({
     <PosterContext.Provider value={{ poster, switchPoster }}>
       <div className="flex flex-1 flex-col">
         <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 border-b border-(--color-divider) bg-page px-4 py-3">
-          <h1 className="text-xl">Lead Tracker</h1>
+          <h1 className="text-xl">Marriage Lead Tracker</h1>
           <div className="flex items-center gap-2 text-sm">
             <button type="button" onClick={switchPoster} className="btn btn-ghost">
               Switch
@@ -196,8 +201,8 @@ export default function Tracker({
             </button>
             <LeadDetail
               lead={selectedLead}
-              onInteractionAdded={(interaction) =>
-                handleInteractionAdded(selectedLead.id, interaction)
+              onInteractionAdded={(interaction, status) =>
+                handleInteractionAdded(selectedLead.id, interaction, status)
               }
               onLeadUpdated={handleLeadUpdated}
             />
@@ -249,7 +254,7 @@ export default function Tracker({
                       <th className="hidden py-2 px-2 font-medium sm:table-cell">Age</th>
                       <th className="hidden py-2 px-2 font-medium sm:table-cell">Location</th>
                       <th className="py-2 px-2 font-medium">Stage</th>
-                      <th className="py-2 pr-4 pl-2 font-medium sm:pr-6">Updated</th>
+                      <th className="py-2 pr-4 pl-2 font-medium sm:pr-6">Added</th>
                     </tr>
                   </thead>
                   <tbody>

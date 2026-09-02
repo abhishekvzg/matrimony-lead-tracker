@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { COMPATIBILITY_THRESHOLD, type Interaction, type LeadWithRelations } from "@/lib/types";
+import {
+  COMPATIBILITY_THRESHOLD,
+  type Interaction,
+  type LeadStatus,
+  type LeadWithRelations,
+} from "@/lib/types";
 import InteractionsModal from "./InteractionsModal";
 import AttachmentLightbox from "./AttachmentLightbox";
 import EditLeadForm from "./EditLeadForm";
@@ -170,7 +175,7 @@ export default function LeadDetail({
   onLeadUpdated,
 }: {
   lead: LeadWithRelations;
-  onInteractionAdded: (interaction: Interaction) => void;
+  onInteractionAdded: (interaction: Interaction, status: LeadStatus) => void;
   onLeadUpdated: (lead: LeadWithRelations) => void;
 }) {
   const [lightbox, setLightbox] = useState<{ url: string; name: string | null } | null>(null);
@@ -347,8 +352,8 @@ export default function LeadDetail({
       {interactionsOpen && (
         <InteractionsModal
           lead={lead}
-          onAdded={(interaction) => {
-            onInteractionAdded(interaction);
+          onAdded={(interaction, status) => {
+            onInteractionAdded(interaction, status);
           }}
           onClose={() => setInteractionsOpen(false)}
         />

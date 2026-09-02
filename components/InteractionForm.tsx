@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Interaction } from "@/lib/types";
+import type { Interaction, LeadStatus } from "@/lib/types";
 import { usePoster } from "@/lib/posterContext";
 
 function todayLocalDate() {
@@ -15,7 +15,7 @@ export default function InteractionForm({
   onAdded,
 }: {
   leadId: string;
-  onAdded: (interaction: Interaction) => void;
+  onAdded: (interaction: Interaction, status: LeadStatus) => void;
 }) {
   const { poster } = usePoster();
   const [date, setDate] = useState(todayLocalDate());
@@ -34,8 +34,8 @@ export default function InteractionForm({
         body: JSON.stringify({ interaction_date: date, spoke_by: poster, notes }),
       });
       if (!res.ok) throw new Error("Failed to save update");
-      const { interaction } = await res.json();
-      onAdded(interaction);
+      const { interaction, status } = await res.json();
+      onAdded(interaction, status);
       setNotes("");
       setDate(todayLocalDate());
     } catch {

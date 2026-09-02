@@ -1,6 +1,5 @@
 export const LEAD_STATUSES = [
   "New",
-  "Reviewing",
   "Contacted",
   "In Discussion",
   "Meeting Planned",
@@ -13,7 +12,7 @@ export const LEAD_STATUSES = [
 
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
-export const SPOKE_BY_OPTIONS = ["Dad", "Mom", "Sister", "You", "Other"] as const;
+export const SPOKE_BY_OPTIONS = ["Surya", "Sireesha", "Sruthi", "Abhishek"] as const;
 
 export type SpokeBy = (typeof SPOKE_BY_OPTIONS)[number];
 

@@ -11,6 +11,21 @@ function formatDate(iso: string) {
   });
 }
 
+// Traffic-light read on pipeline stage: green means it's moving toward a
+// meeting, red means it's dead, amber means it's still open, and "New"/
+// "Hide" stay neutral since nothing's actually happened yet either way.
+const STATUS_ROW_TONE: Record<LeadStatus, string> = {
+  New: "",
+  Contacted: "bg-amber-50",
+  "In Discussion": "bg-amber-50",
+  "On Hold": "bg-amber-50",
+  "Meeting Planned": "bg-green-50",
+  "Meeting Done": "bg-green-50",
+  Rejected: "bg-red-50",
+  "Rejected by Other Side": "bg-red-50",
+  Hide: "",
+};
+
 export default function LeadRow({
   lead,
   onSelect,
@@ -23,7 +38,7 @@ export default function LeadRow({
   return (
     <tr
       onClick={onSelect}
-      className="cursor-pointer border-b border-(--color-divider) last:border-0 hover:bg-accent-100/40"
+      className={`cursor-pointer border-b border-(--color-divider) last:border-0 hover:brightness-95 ${STATUS_ROW_TONE[lead.status]}`}
     >
       <td className="py-3 pr-2 pl-4 sm:pl-6">
         <div className="flex min-w-0 items-center gap-3">
@@ -44,7 +59,7 @@ export default function LeadRow({
         <StatusSelect value={lead.status} onChange={onStatusChange} />
       </td>
       <td className="py-3 pr-4 pl-2 text-sm whitespace-nowrap text-(--color-label) sm:pr-6">
-        {formatDate(lead.updated_at)}
+        {formatDate(lead.created_at)}
       </td>
     </tr>
   );

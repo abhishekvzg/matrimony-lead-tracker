@@ -14,7 +14,7 @@ const nunitoSans = Nunito_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Lead Tracker",
+  title: "Marriage Lead Tracker",
   description: "Family marriage prospect lead tracker",
 };
 

@@ -9,7 +9,7 @@ export default function WhoIsThisPicker({
 }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 text-center">
-      <h1 className="text-3xl">Lead Tracker</h1>
+      <h1 className="text-3xl">Marriage Lead Tracker</h1>
       <div className="w-full max-w-xs border-t border-(--color-divider) pt-6">
         <p className="kicker mb-3 text-left">Who&apos;s this?</p>
         <div className="flex flex-col gap-2">

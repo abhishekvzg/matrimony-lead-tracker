@@ -13,11 +13,11 @@ export async function POST(
     return NextResponse.json({ error: "Invalid spoke_by" }, { status: 400 });
   }
 
-  const interaction = await addInteraction(id, {
+  const { interaction, status } = await addInteraction(id, {
     interaction_date: typeof body.interaction_date === "string" ? body.interaction_date : undefined,
     spoke_by: body.spoke_by,
     notes: typeof body.notes === "string" ? body.notes : null,
   });
 
-  return NextResponse.json({ interaction }, { status: 201 });
+  return NextResponse.json({ interaction, status }, { status: 201 });
 }

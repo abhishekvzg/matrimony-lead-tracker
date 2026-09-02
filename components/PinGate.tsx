@@ -45,7 +45,7 @@ export default function PinGate() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-8 px-4 text-center">
       <div>
-        <h1 className="text-4xl">Lead Tracker</h1>
+        <h1 className="text-4xl">Marriage Lead Tracker</h1>
         <p className="mt-2 min-h-[22px] text-[15px] text-(--color-label)">
           {TAGLINES[taglineIndex]}
         </p>

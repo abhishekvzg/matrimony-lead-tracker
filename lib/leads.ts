@@ -245,7 +245,14 @@ export async function updateLead(id: string, patch: LeadPatch): Promise<Lead> {
 export async function addInteraction(
   leadId: string,
   input: { interaction_date?: string; spoke_by: SpokeBy; notes?: string | null }
-): Promise<Interaction> {
+): Promise<{ interaction: Interaction; status: LeadStatus }> {
+  const { data: leadRow, error: leadError } = await supabaseAdmin()
+    .from("leads")
+    .select("status")
+    .eq("id", leadId)
+    .single();
+  if (leadError) throw leadError;
+
   const { data, error } = await supabaseAdmin()
     .from("interactions")
     .insert({
@@ -258,7 +265,21 @@ export async function addInteraction(
     .single();
 
   if (error) throw error;
-  return data as Interaction;
+
+  // Logging a discussion is a signal the lead has moved past "New" — but
+  // once it's progressed further, adding another update shouldn't yank it
+  // back to "Contacted"; the status stays whatever it was manually set to.
+  let status = leadRow.status as LeadStatus;
+  if (status === "New") {
+    status = "Contacted";
+    const { error: statusError } = await supabaseAdmin()
+      .from("leads")
+      .update({ status })
+      .eq("id", leadId);
+    if (statusError) throw statusError;
+  }
+
+  return { interaction: data as Interaction, status };
 }
 
 export async function uploadAttachment(

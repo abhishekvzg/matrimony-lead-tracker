@@ -1,6 +1,6 @@
 "use client";
 
-import type { Interaction, LeadWithRelations } from "@/lib/types";
+import type { Interaction, LeadStatus, LeadWithRelations } from "@/lib/types";
 import InteractionForm from "./InteractionForm";
 
 function formatDate(iso: string) {
@@ -17,7 +17,7 @@ export default function InteractionsModal({
   onClose,
 }: {
   lead: LeadWithRelations;
-  onAdded: (interaction: Interaction) => void;
+  onAdded: (interaction: Interaction, status: LeadStatus) => void;
   onClose: () => void;
 }) {
   return (
