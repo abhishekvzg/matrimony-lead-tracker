@@ -11,10 +11,15 @@ import {
 
 // Gemini intermittently returns 503 ("model overloaded") or 429 (rate
 // limited) — both transient — and under sustained overload a single call
-// can also just hang. Retry on all three, but cap each attempt so a stuck
-// call can't by itself burn the route's whole maxDuration budget.
+// can also just hang. The whole call (including any retry) shares one
+// wall-clock budget, kept under the route's 60s maxDuration with headroom
+// for the rest of the request (buffering images, parsing JSON, etc).
 const RETRYABLE_STATUS_CODES = new Set([429, 503]);
-const ATTEMPT_TIMEOUT_MS = 27000;
+const TOTAL_BUDGET_MS = 55000;
+// Only worth retrying if a meaningful amount of budget survived the failed
+// attempt — a retry with a couple of seconds left can't do anything a
+// longer single attempt couldn't already, so don't bother splitting it.
+const MIN_RETRY_BUDGET_MS = 8000;
 
 // The free tier caps this API key at a small number of requests *per day*,
 // not per minute — retrying that is pointless until the daily window
@@ -40,18 +45,26 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// retries=1 (2 attempts total) keeps the worst case (2 * 27s + backoff) safely
-// under the route's 60s maxDuration — a higher retry count here would risk a
-// stuck call outliving the function itself and dying with a raw platform
-// timeout instead of this module's own clean error.
-async function withRetry<T>(fn: () => Promise<T>, retries = 1, baseDelayMs = 1000): Promise<T> {
-  for (let attempt = 0; ; attempt++) {
+// Gives the first attempt almost the whole budget instead of splitting a
+// fixed window across a fixed number of attempts — a slow-but-healthy call
+// (e.g. two images to process) gets the time it actually needs, while a
+// fast failure (503/429 returned in a second or two) still gets a real
+// retry with nearly the full budget again. An attempt that used up nearly
+// all the time before being aborted leaves nothing worth retrying with, so
+// it fails once, cleanly, instead of guaranteeing an identical second miss.
+async function withRetry<T>(fn: (timeoutMs: number) => Promise<T>): Promise<T> {
+  const deadline = Date.now() + TOTAL_BUDGET_MS;
+  let attempt = 0;
+  for (;;) {
+    const remaining = deadline - Date.now();
     try {
-      return await fn();
+      return await fn(remaining);
     } catch (err) {
       if (isDailyQuotaError(err)) throw new GeminiQuotaExceededError();
-      if (!isRetryableGeminiError(err) || attempt >= retries) throw err;
-      await sleep(baseDelayMs * 2 ** attempt);
+      attempt++;
+      const remainingAfter = deadline - Date.now();
+      if (!isRetryableGeminiError(err) || remainingAfter < MIN_RETRY_BUDGET_MS) throw err;
+      await sleep(Math.min(1000 * 2 ** (attempt - 1), remainingAfter - 1000));
     }
   }
 }
@@ -132,13 +145,13 @@ export async function extractLeadFields(input: {
     parts.push(createPartFromBase64(image.base64, image.mimeType));
   }
 
-  const response = await withRetry(() =>
+  const response = await withRetry((timeoutMs) =>
     getClient().models.generateContent({
       model: "gemini-3.6-flash",
       contents: createUserContent(parts),
       config: {
         responseMimeType: "application/json",
-        abortSignal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
+        abortSignal: AbortSignal.timeout(timeoutMs),
       },
     })
   );
