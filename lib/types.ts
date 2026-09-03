@@ -19,6 +19,11 @@ export type SpokeBy = (typeof SPOKE_BY_OPTIONS)[number];
 export const GEMINI_QUOTA_MESSAGE =
   "Gemini's free daily limit has been used up for today — try again tomorrow.";
 
+// More images per extraction call means more processing time for Gemini —
+// 2 covers a 2-page biodata while keeping calls comfortably inside the
+// per-attempt timeout in lib/gemini.ts.
+export const MAX_EXTRACTION_IMAGES = 2;
+
 // Canonical nakshatra vocabulary, spelled the way this family's biodata
 // documents and nakshatra_scores table use them. Extraction is instructed
 // to normalize alternate spellings (Ardra/Chitra/Swati/etc.) into these

@@ -1,22 +1,23 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { extractLeadFields, GeminiQuotaExceededError } from "@/lib/gemini";
+import { MAX_EXTRACTION_IMAGES } from "@/lib/types";
 
-// The Gemini call runs against a full-size image here; the platform default
+// The Gemini call runs against full-size images here; the platform default
 // of 10s is too tight and was causing intermittent timeouts on upload.
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const text = formData.get("text");
-  // Only one image is ever sent for extraction — a second image roughly
-  // doubles Gemini's processing time, which was blowing past the per-attempt
-  // timeout. Bulk/reference photos belong in the attachments endpoint, which
-  // stores them directly with no Gemini call at all.
+  // Capped at MAX_EXTRACTION_IMAGES (a 2-page biodata) — more than that
+  // pushes Gemini's processing time past the per-attempt timeout. Bulk/
+  // reference photos belong in the attachments endpoint, which stores them
+  // directly with no Gemini call at all.
   const imageFiles = formData
     .getAll("images")
     .filter((f): f is File => f instanceof File)
-    .slice(0, 1);
+    .slice(0, MAX_EXTRACTION_IMAGES);
 
   if (imageFiles.length === 0 && typeof text !== "string") {
     return NextResponse.json(
