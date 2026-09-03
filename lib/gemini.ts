@@ -14,7 +14,7 @@ import {
 // can also just hang. Retry on all three, but cap each attempt so a stuck
 // call can't by itself burn the route's whole maxDuration budget.
 const RETRYABLE_STATUS_CODES = new Set([429, 503]);
-const ATTEMPT_TIMEOUT_MS = 15000;
+const ATTEMPT_TIMEOUT_MS = 27000;
 
 // The free tier caps this API key at a small number of requests *per day*,
 // not per minute — retrying that is pointless until the daily window
@@ -40,7 +40,11 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function withRetry<T>(fn: () => Promise<T>, retries = 2, baseDelayMs = 1000): Promise<T> {
+// retries=1 (2 attempts total) keeps the worst case (2 * 27s + backoff) safely
+// under the route's 60s maxDuration — a higher retry count here would risk a
+// stuck call outliving the function itself and dying with a raw platform
+// timeout instead of this module's own clean error.
+async function withRetry<T>(fn: () => Promise<T>, retries = 1, baseDelayMs = 1000): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
       return await fn();

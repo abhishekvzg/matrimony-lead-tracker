@@ -185,17 +185,19 @@ export default function AddLeadModal({
           {step === "input" && (
             <>
               <div>
-                <label className="mb-1 block text-sm font-medium text-ink">Screenshot(s)</label>
+                <label className="mb-1 block text-sm font-medium text-ink">Screenshot</label>
                 <input
                   type="file"
                   accept="image/*"
-                  multiple
-                  onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+                  onChange={(e) => setFiles(Array.from(e.target.files ?? []).slice(0, 1))}
                   className="block w-full text-sm text-(--color-label) file:mr-3 file:rounded-md file:border-0 file:bg-accent-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-accent-700 hover:file:bg-accent-200"
                 />
                 {files.length > 0 && (
-                  <p className="mt-1 text-xs text-(--color-label)">{files.length} file(s) selected</p>
+                  <p className="mt-1 text-xs text-(--color-label)">{files[0].name} selected</p>
                 )}
+                <p className="mt-1 text-xs text-(--color-label)">
+                  One image only — add more photos from the lead&apos;s page after saving.
+                </p>
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-ink">Or paste text</label>
