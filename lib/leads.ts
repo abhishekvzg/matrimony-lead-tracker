@@ -307,16 +307,12 @@ export async function uploadAttachment(
 
 // Stores the cropped DP under its own path (not an attachments row — it
 // renders separately as a small circular avatar) and points the lead at it.
-async function uploadProfilePictureData(
-  leadId: string,
-  data: File | Buffer,
-  contentType: string
-): Promise<string> {
+export async function setProfilePicture(leadId: string, file: File): Promise<string> {
   const path = `${leadId}/dp-${crypto.randomUUID()}.jpg`;
 
   const { error: uploadError } = await supabaseAdmin()
     .storage.from(LEAD_ATTACHMENTS_BUCKET)
-    .upload(path, data, { contentType });
+    .upload(path, file, { contentType: file.type || "image/jpeg" });
 
   if (uploadError) throw uploadError;
 
@@ -327,15 +323,4 @@ async function uploadProfilePictureData(
 
   if (error) throw error;
   return path;
-}
-
-export async function setProfilePicture(leadId: string, file: File): Promise<string> {
-  return uploadProfilePictureData(leadId, file, file.type || "image/jpeg");
-}
-
-export async function setProfilePictureFromBuffer(
-  leadId: string,
-  buffer: Buffer
-): Promise<string> {
-  return uploadProfilePictureData(leadId, buffer, "image/jpeg");
 }

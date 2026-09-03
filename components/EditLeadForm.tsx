@@ -1,15 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import {
-  GEMINI_QUOTA_MESSAGE,
-  type ExtractedLeadFields,
-  type FaceCandidate,
-  type LeadWithRelations,
-} from "@/lib/types";
-import { cropImageToFace } from "@/lib/cropImage";
+import { type ExtractedLeadFields, type LeadWithRelations } from "@/lib/types";
 import LeadFieldsForm, { type ContactDraft } from "./LeadFieldsForm";
 import Avatar from "./Avatar";
+import ManualCropModal from "./ManualCropModal";
 
 function leadToFields(lead: LeadWithRelations): ExtractedLeadFields {
   return {
@@ -41,14 +36,6 @@ function leadToFields(lead: LeadWithRelations): ExtractedLeadFields {
   };
 }
 
-function largestFace(candidates: FaceCandidate[]): FaceCandidate {
-  return candidates.reduce((largest, c) => {
-    const area = (c.box[2] - c.box[0]) * (c.box[3] - c.box[1]);
-    const largestArea = (largest.box[2] - largest.box[0]) * (largest.box[3] - largest.box[1]);
-    return area > largestArea ? c : largest;
-  });
-}
-
 export default function EditLeadForm({
   lead,
   onSaved,
@@ -69,9 +56,8 @@ export default function EditLeadForm({
   const [error, setError] = useState("");
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [avatarError, setAvatarError] = useState("");
-  const [dpCandidates, setDpCandidates] = useState<{ index: number; dataUrl: string }[] | null>(
-    null
-  );
+  const [showAttachmentPicker, setShowAttachmentPicker] = useState(false);
+  const [cropImage, setCropImage] = useState<{ src: string; isObjectUrl: boolean } | null>(null);
 
   function updateField(key: keyof ExtractedLeadFields, value: string) {
     setFields((prev) => ({
@@ -104,27 +90,24 @@ export default function EditLeadForm({
     }
   }
 
-  async function handleReplaceAvatar(file: File) {
+  function openCropForFile(file: File) {
+    setCropImage({ src: URL.createObjectURL(file), isObjectUrl: true });
+  }
+
+  function openCropForAttachment(url: string) {
+    setShowAttachmentPicker(false);
+    setCropImage({ src: url, isObjectUrl: false });
+  }
+
+  function closeCrop() {
+    if (cropImage?.isObjectUrl) URL.revokeObjectURL(cropImage.src);
+    setCropImage(null);
+  }
+
+  async function handleCropped(blob: Blob) {
     setAvatarBusy(true);
     setAvatarError("");
     try {
-      const detectForm = new FormData();
-      detectForm.append("images", file);
-      const detectRes = await fetch("/api/detect-face", { method: "POST", body: detectForm });
-      if (!detectRes.ok) {
-        const body = await detectRes.json().catch(() => null);
-        throw new Error(body?.quotaExceeded ? "quota" : "detect failed");
-      }
-      const { faceCandidates } = (await detectRes.json()) as { faceCandidates: FaceCandidate[] };
-
-      if (faceCandidates.length === 0) {
-        setAvatarError("No face detected in that photo — try a different one.");
-        return;
-      }
-
-      const face = largestFace(faceCandidates);
-      const blob = await cropImageToFace(file, face.box);
-
       const uploadForm = new FormData();
       uploadForm.append("file", blob, "dp.jpg");
       const uploadRes = await fetch(`/api/leads/${lead.id}/profile-picture`, {
@@ -132,68 +115,12 @@ export default function EditLeadForm({
         body: uploadForm,
       });
       if (!uploadRes.ok) throw new Error("upload failed");
-
-      await refreshLead();
-    } catch (err) {
-      setAvatarError(
-        err instanceof Error && err.message === "quota"
-          ? GEMINI_QUOTA_MESSAGE
-          : "Couldn't update the photo. Try again."
-      );
-    } finally {
-      setAvatarBusy(false);
-    }
-  }
-
-  async function handleDetectFromAttachments() {
-    setAvatarBusy(true);
-    setAvatarError("");
-    setDpCandidates(null);
-    try {
-      const res = await fetch(`/api/leads/${lead.id}/detect-dp-from-attachments`, {
-        method: "POST",
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        throw new Error(data?.quotaExceeded ? "quota" : "detect failed");
-      }
-
-      if (data.status === "none") {
-        setAvatarError("No face found in the uploaded photos.");
-      } else if (data.status === "set") {
-        await refreshLead();
-      } else if (data.status === "choose") {
-        setDpCandidates(data.candidates);
-      }
-    } catch (err) {
-      setAvatarError(
-        err instanceof Error && err.message === "quota"
-          ? GEMINI_QUOTA_MESSAGE
-          : "Couldn't scan the photos. Try again."
-      );
-    } finally {
-      setAvatarBusy(false);
-    }
-  }
-
-  async function handleChooseCandidate(dataUrl: string) {
-    setAvatarBusy(true);
-    setAvatarError("");
-    try {
-      const blob = await (await fetch(dataUrl)).blob();
-      const uploadForm = new FormData();
-      uploadForm.append("file", blob, "dp.jpg");
-      const uploadRes = await fetch(`/api/leads/${lead.id}/profile-picture`, {
-        method: "POST",
-        body: uploadForm,
-      });
-      if (!uploadRes.ok) throw new Error("upload failed");
-      setDpCandidates(null);
       await refreshLead();
     } catch {
-      setAvatarError("Couldn't set that photo. Try again.");
+      setAvatarError("Couldn't update the photo. Try again.");
     } finally {
       setAvatarBusy(false);
+      closeCrop();
     }
   }
 
@@ -270,18 +197,18 @@ export default function EditLeadForm({
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   e.target.value = "";
-                  if (file) handleReplaceAvatar(file);
+                  if (file) openCropForFile(file);
                 }}
               />
             </label>
             {lead.attachments.length > 0 && (
               <button
                 type="button"
-                onClick={handleDetectFromAttachments}
+                onClick={() => setShowAttachmentPicker(true)}
                 disabled={avatarBusy}
                 className="text-xs font-medium text-accent-700 hover:text-accent-900 disabled:opacity-50"
               >
-                Detect from photos
+                Choose from photos
               </button>
             )}
             {lead.profile_picture_url && (
@@ -297,28 +224,42 @@ export default function EditLeadForm({
           </div>
           {avatarBusy && <p className="text-xs text-(--color-label)">Working…</p>}
           {avatarError && <p className="text-xs text-red-600">{avatarError}</p>}
-          {dpCandidates && (
-            <div className="mt-1 flex flex-wrap gap-2">
-              {dpCandidates.map((c) => (
-                <button
-                  key={c.index}
-                  type="button"
-                  onClick={() => handleChooseCandidate(c.dataUrl)}
-                  disabled={avatarBusy}
-                  className="h-12 w-12 overflow-hidden rounded-full border-2 border-transparent hover:border-accent"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={c.dataUrl}
-                    alt={`Candidate ${c.index + 1}`}
-                    className="h-full w-full object-cover"
-                  />
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       </div>
+
+      {showAttachmentPicker && (
+        <div className="dialog-backdrop" onClick={() => setShowAttachmentPicker(false)}>
+          <div className="dialog-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between text-lg">
+              <span>Choose a photo</span>
+              <button
+                type="button"
+                onClick={() => setShowAttachmentPicker(false)}
+                className="btn btn-ghost px-2 text-lg leading-none"
+                aria-label="Close"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {lead.attachments.map((a) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={a.id}
+                  src={a.file_url}
+                  alt={a.file_name ?? "Attachment"}
+                  onClick={() => openCropForAttachment(a.file_url)}
+                  className="h-20 w-20 cursor-pointer rounded-md border border-(--color-divider) object-cover hover:opacity-80"
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cropImage && (
+        <ManualCropModal imageSrc={cropImage.src} onCancel={closeCrop} onCropped={handleCropped} />
+      )}
 
       <LeadFieldsForm
         fields={fields}

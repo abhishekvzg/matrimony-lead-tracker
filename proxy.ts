@@ -16,10 +16,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/tracker/:path*",
-    "/api/leads/:path*",
-    "/api/extract/:path*",
-    "/api/detect-face/:path*",
-  ],
+  matcher: ["/tracker/:path*", "/api/leads/:path*", "/api/extract/:path*"],
 };

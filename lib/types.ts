@@ -197,13 +197,4 @@ export interface ExtractedContact {
 export interface ExtractionResult {
   fields: ExtractedLeadFields;
   contacts: ExtractedContact[];
-  faceCandidates: FaceCandidate[];
-}
-
-// A candidate face found in one of the uploaded images. box is
-// [ymin, xmin, ymax, xmax], normalized 0-1000 (Gemini's convention),
-// relative to the image at `imageIndex` in the upload order.
-export interface FaceCandidate {
-  imageIndex: number;
-  box: [number, number, number, number];
 }

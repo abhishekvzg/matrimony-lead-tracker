@@ -1,11 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { GEMINI_QUOTA_MESSAGE, type ExtractedLeadFields, type FaceCandidate } from "@/lib/types";
-import { cropImageToFace } from "@/lib/cropImage";
+import { useEffect, useMemo, useState } from "react";
+import { GEMINI_QUOTA_MESSAGE, type ExtractedLeadFields } from "@/lib/types";
 import LeadFieldsForm, { type ContactDraft } from "./LeadFieldsForm";
-
-type CandidateCrop = { previewUrl: string; blob: Blob };
+import ManualCropModal from "./ManualCropModal";
 
 type Step = "input" | "extracting" | "review" | "saving";
 
@@ -52,14 +50,38 @@ export default function AddLeadModal({
   const [source, setSource] = useState("");
   const [error, setError] = useState("");
   const [foundKeys, setFoundKeys] = useState<Set<string>>(new Set());
-  const [candidateCrops, setCandidateCrops] = useState<CandidateCrop[]>([]);
-  const [selectedCandidate, setSelectedCandidate] = useState<number | null>(null);
+  const [cropSource, setCropSource] = useState<string | null>(null);
+  const [dpBlob, setDpBlob] = useState<Blob | null>(null);
+  const [dpPreviewUrl, setDpPreviewUrl] = useState<string | null>(null);
+  const [lastExtractedSignature, setLastExtractedSignature] = useState<string | null>(null);
+
+  const fileObjectUrls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
+
+  useEffect(() => {
+    return () => fileObjectUrls.forEach((u) => URL.revokeObjectURL(u));
+  }, [fileObjectUrls]);
+
+  function clearDp() {
+    if (dpPreviewUrl) URL.revokeObjectURL(dpPreviewUrl);
+    setDpBlob(null);
+    setDpPreviewUrl(null);
+  }
 
   async function handleExtract() {
     if (files.length === 0 && !text.trim()) {
       setError("Add at least one image or some text.");
       return;
     }
+
+    // Going Back then re-extracting the exact same input would burn another
+    // of the day's very limited Gemini calls for an identical result —
+    // reuse what we already have instead.
+    const signature = `${files.map((f) => `${f.name}:${f.size}:${f.lastModified}`).join(",")}|${text.trim()}`;
+    if (signature === lastExtractedSignature) {
+      setStep("review");
+      return;
+    }
+
     setError("");
     setStep("extracting");
     try {
@@ -90,33 +112,7 @@ export default function AddLeadModal({
           }))
         : [];
       setContacts(extractedContacts);
-
-      const candidates: FaceCandidate[] = Array.isArray(data.faceCandidates)
-        ? data.faceCandidates
-        : [];
-      candidateCrops.forEach((c) => URL.revokeObjectURL(c.previewUrl));
-      if (candidates.length > 0) {
-        const crops = (
-          await Promise.all(
-            candidates.map(async (c): Promise<CandidateCrop | null> => {
-              const sourceFile = files[c.imageIndex];
-              if (!sourceFile) return null;
-              try {
-                const blob = await cropImageToFace(sourceFile, c.box);
-                return { previewUrl: URL.createObjectURL(blob), blob };
-              } catch {
-                return null;
-              }
-            })
-          )
-        ).filter((c): c is CandidateCrop => c !== null);
-        setCandidateCrops(crops);
-        setSelectedCandidate(crops.length === 1 ? 0 : null);
-      } else {
-        setCandidateCrops([]);
-        setSelectedCandidate(null);
-      }
-
+      setLastExtractedSignature(signature);
       setStep("review");
     } catch (err) {
       setError(
@@ -127,8 +123,6 @@ export default function AddLeadModal({
       setFields(EMPTY_FIELDS);
       setFoundKeys(new Set());
       setContacts([]);
-      setCandidateCrops([]);
-      setSelectedCandidate(null);
       setStep("review");
     }
   }
@@ -148,8 +142,8 @@ export default function AddLeadModal({
         )
       );
       files.forEach((f) => formData.append("files", f));
-      if (selectedCandidate !== null && candidateCrops[selectedCandidate]) {
-        formData.append("profile_picture", candidateCrops[selectedCandidate].blob, "dp.jpg");
+      if (dpBlob) {
+        formData.append("profile_picture", dpBlob, "dp.jpg");
       }
 
       const res = await fetch("/api/leads", { method: "POST", body: formData });
@@ -170,6 +164,7 @@ export default function AddLeadModal({
   }
 
   return (
+    <>
     <div className="dialog-backdrop" onClick={onClose}>
       <div
         className="dialog-panel max-w-lg"
@@ -229,41 +224,46 @@ export default function AddLeadModal({
           {(step === "review" || step === "saving") && (
             <>
               {error && <p className="text-sm text-red-600">{error}</p>}
-              {candidateCrops.length > 0 && (
+              {fileObjectUrls.length > 0 && (
                 <div>
                   <label className="mb-2 block text-xs font-medium text-(--color-label)">
-                    Profile Picture{candidateCrops.length > 1 ? " — pick one" : ""}
+                    Profile picture (optional)
                   </label>
-                  <div className="flex flex-wrap gap-2">
-                    {candidateCrops.map((crop, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setSelectedCandidate(i)}
-                        className={`h-16 w-16 overflow-hidden rounded-full border-2 ${
-                          selectedCandidate === i ? "border-accent" : "border-transparent"
-                        }`}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={crop.previewUrl}
-                          alt={`Candidate ${i + 1}`}
-                          className="h-full w-full object-cover"
-                        />
-                      </button>
-                    ))}
-                    {candidateCrops.length > 1 && (
+                  {dpPreviewUrl ? (
+                    <div className="flex items-center gap-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={dpPreviewUrl}
+                        alt="Profile"
+                        className="h-16 w-16 rounded-full border-2 border-accent object-cover"
+                      />
                       <button
                         type="button"
-                        onClick={() => setSelectedCandidate(null)}
-                        className={`flex h-16 w-16 items-center justify-center rounded-full border-2 text-xs text-(--color-label) ${
-                          selectedCandidate === null ? "border-accent" : "border-(--color-divider)"
-                        }`}
+                        onClick={clearDp}
+                        className="text-xs font-medium text-(--color-label) hover:text-red-600"
                       >
-                        None
+                        Remove
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {fileObjectUrls.map((url, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setCropSource(url)}
+                          className="h-16 w-16 overflow-hidden rounded-md border border-(--color-divider) hover:opacity-80"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt={`Photo ${i + 1}`}
+                            className="h-full w-full object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
               <LeadFieldsForm
@@ -296,5 +296,19 @@ export default function AddLeadModal({
         </div>
       </div>
     </div>
+
+    {cropSource && (
+      <ManualCropModal
+        imageSrc={cropSource}
+        onCancel={() => setCropSource(null)}
+        onCropped={(blob) => {
+          if (dpPreviewUrl) URL.revokeObjectURL(dpPreviewUrl);
+          setDpBlob(blob);
+          setDpPreviewUrl(URL.createObjectURL(blob));
+          setCropSource(null);
+        }}
+      />
+    )}
+    </>
   );
 }

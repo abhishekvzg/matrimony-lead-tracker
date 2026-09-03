@@ -7,7 +7,6 @@ import {
   type ExtractedContact,
   type ExtractedLeadFields,
   type ExtractionResult,
-  type FaceCandidate,
 } from "./types";
 
 // Gemini intermittently returns 503 ("model overloaded") or 429 (rate
@@ -52,19 +51,6 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 2, baseDelayMs = 100
     }
   }
 }
-
-const FACE_DETECTION_PROMPT = `You will be given one or more images, indexed starting at 0 in the order provided.
-Detect every human face that appears in each image (a real photo of a person — not a
-logo, icon, drawing, or document scan of text).
-Return ONLY valid JSON, no markdown, no explanation, as an array. One entry per face found:
-[
-  { "imageIndex": number, "box": [ymin, xmin, ymax, xmax] }
-]
-"box" coordinates are integers normalized to a 0-1000 scale, in that exact order
-(ymin, xmin, ymax, xmax), representing the tight bounding box around the face
-(just the face/head area, not the whole body).
-If an image contains no human face, contribute no entries for it.
-If no faces are found in any image, return an empty array: []`;
 
 const EXTRACTION_PROMPT = `You are extracting structured data from an Indian matrimony bio-data (image or text).
 Return ONLY valid JSON, no markdown, no explanation, matching exactly this shape:
@@ -142,19 +128,16 @@ export async function extractLeadFields(input: {
     parts.push(createPartFromBase64(image.base64, image.mimeType));
   }
 
-  const [response, faceCandidates] = await Promise.all([
-    withRetry(() =>
-      getClient().models.generateContent({
-        model: "gemini-3.6-flash",
-        contents: createUserContent(parts),
-        config: {
-          responseMimeType: "application/json",
-          abortSignal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
-        },
-      })
-    ),
-    detectFaces(input.images).catch(() => []),
-  ]);
+  const response = await withRetry(() =>
+    getClient().models.generateContent({
+      model: "gemini-3.6-flash",
+      contents: createUserContent(parts),
+      config: {
+        responseMimeType: "application/json",
+        abortSignal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
+      },
+    })
+  );
 
   const text = response.text;
   if (!text) throw new Error("Empty response from Gemini");
@@ -192,57 +175,5 @@ export async function extractLeadFields(input: {
     }))
     .filter((c) => c.phone_number.length > 0);
 
-  return { fields: fields as unknown as ExtractedLeadFields, contacts, faceCandidates };
-}
-
-export async function detectFaces(
-  images: { base64: string; mimeType: string }[]
-): Promise<FaceCandidate[]> {
-  if (images.length === 0) return [];
-
-  const parts = [
-    FACE_DETECTION_PROMPT,
-    ...images.map((image) => createPartFromBase64(image.base64, image.mimeType)),
-  ];
-
-  const response = await withRetry(() =>
-    getClient().models.generateContent({
-      model: "gemini-3.6-flash",
-      contents: createUserContent(parts),
-      config: {
-        responseMimeType: "application/json",
-        abortSignal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
-      },
-    })
-  );
-
-  const text = response.text;
-  if (!text) return [];
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(parsed)) return [];
-
-  return parsed
-    .filter((c): c is Record<string, unknown> => typeof c === "object" && c !== null)
-    .map((c): FaceCandidate | null => {
-      const imageIndex = Number(c.imageIndex);
-      const box = c.box;
-      if (
-        !Number.isInteger(imageIndex) ||
-        imageIndex < 0 ||
-        imageIndex >= images.length ||
-        !Array.isArray(box) ||
-        box.length !== 4 ||
-        !box.every((n) => typeof n === "number" && Number.isFinite(n))
-      ) {
-        return null;
-      }
-      return { imageIndex, box: box as [number, number, number, number] };
-    })
-    .filter((c): c is FaceCandidate => c !== null);
+  return { fields: fields as unknown as ExtractedLeadFields, contacts };
 }
