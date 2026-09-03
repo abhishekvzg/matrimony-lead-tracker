@@ -182,6 +182,35 @@ export default function LeadDetail({
   const [isEditing, setIsEditing] = useState(false);
   const [selectingPadam, setSelectingPadam] = useState(false);
   const [interactionsOpen, setInteractionsOpen] = useState(false);
+  const [attachmentsBusy, setAttachmentsBusy] = useState(false);
+  const [attachmentsError, setAttachmentsError] = useState("");
+
+  async function handleAddAttachments(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (files.length === 0) return;
+
+    setAttachmentsBusy(true);
+    setAttachmentsError("");
+    try {
+      const formData = new FormData();
+      files.forEach((f) => formData.append("files", f));
+      const res = await fetch(`/api/leads/${lead.id}/attachments`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) throw new Error("upload failed");
+
+      const freshRes = await fetch(`/api/leads/${lead.id}`);
+      if (!freshRes.ok) throw new Error("refetch failed");
+      const { lead: freshLead } = await freshRes.json();
+      onLeadUpdated(freshLead);
+    } catch {
+      setAttachmentsError("Couldn't upload those photos. Try again.");
+    } finally {
+      setAttachmentsBusy(false);
+    }
+  }
 
   async function handleSelectPadam(padam: string) {
     setSelectingPadam(true);
@@ -328,26 +357,40 @@ export default function LeadDetail({
         </>
       )}
 
-      {lead.attachments.length > 0 && (
-        <>
-          <Divider />
-          <div>
-            <p className="kicker mb-2">Attachments</p>
-            <div className="flex flex-wrap gap-2">
-              {lead.attachments.map((a) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={a.id}
-                  src={a.file_url}
-                  alt={a.file_name ?? "Attachment"}
-                  onClick={() => setLightbox({ url: a.file_url, name: a.file_name })}
-                  className="h-20 w-20 cursor-pointer rounded-md border border-(--color-divider) object-cover transition-opacity hover:opacity-80"
-                />
-              ))}
-            </div>
+      <Divider />
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <p className="kicker mb-0">Attachments</p>
+          <label className="cursor-pointer text-xs font-medium text-accent-700 hover:text-accent-900">
+            {attachmentsBusy ? "Uploading…" : "+ Add photos"}
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              disabled={attachmentsBusy}
+              onChange={handleAddAttachments}
+            />
+          </label>
+        </div>
+        {attachmentsError && <p className="mb-2 text-xs text-red-600">{attachmentsError}</p>}
+        {lead.attachments.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {lead.attachments.map((a) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={a.id}
+                src={a.file_url}
+                alt={a.file_name ?? "Attachment"}
+                onClick={() => setLightbox({ url: a.file_url, name: a.file_name })}
+                className="h-20 w-20 cursor-pointer rounded-md border border-(--color-divider) object-cover transition-opacity hover:opacity-80"
+              />
+            ))}
           </div>
-        </>
-      )}
+        ) : (
+          <p className="text-sm text-(--color-label)">No photos yet.</p>
+        )}
+      </div>
 
       {interactionsOpen && (
         <InteractionsModal
