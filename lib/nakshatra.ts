@@ -38,3 +38,51 @@ export async function getPadamOptions(
   if (error) throw error;
   return (data ?? []) as { padam: string; score: number | null }[];
 }
+
+// A row present with a null score means "known Not Compatible, no point
+// total recorded". No row at all means the chart simply doesn't cover that
+// combination yet. Both end up as compatibility_score = null on the lead, so
+// the chart itself is the only way to tell a real verdict from a gap.
+export type ScoreChart = Map<string, Map<string, number | null>>;
+
+// The whole table is at most 108 tiny rows, so one fetch per request beats a
+// per-lead lookup and additionally reveals which combinations are missing.
+export async function loadScoreChart(): Promise<ScoreChart> {
+  const { data, error } = await supabaseAdmin()
+    .from("nakshatra_scores")
+    .select("nakshatra, padam, score")
+    .order("padam", { ascending: true });
+
+  if (error) throw error;
+
+  const chart: ScoreChart = new Map();
+  for (const row of (data ?? []) as {
+    nakshatra: string;
+    padam: string;
+    score: number | null;
+  }[]) {
+    if (!chart.has(row.nakshatra)) chart.set(row.nakshatra, new Map());
+    chart.get(row.nakshatra)!.set(row.padam, row.score);
+  }
+  return chart;
+}
+
+export function chartCovers(
+  chart: ScoreChart,
+  nakshatra: string | null,
+  padam: string | null
+): boolean {
+  if (!nakshatra || !padam) return false;
+  return chart.get(nakshatra)?.has(padam) ?? false;
+}
+
+export function padamOptionsFromChart(
+  chart: ScoreChart,
+  nakshatra: string
+): { padam: string; score: number | null }[] {
+  const padams = chart.get(nakshatra);
+  if (!padams) return [];
+  return [...padams.entries()]
+    .map(([padam, score]) => ({ padam, score }))
+    .sort((a, b) => a.padam.localeCompare(b.padam));
+}

@@ -126,7 +126,11 @@ function CompatibilityBadge({
 
   if (!lead.nakshatra_padam) {
     if (!lead.padam_options || lead.padam_options.length === 0) {
-      return <p className="mt-2 text-xs text-(--color-label)">Add padam to calculate compatibility</p>;
+      return (
+        <p className="mt-2 text-xs text-(--color-label)">
+          {lead.nakshatra} isn&apos;t in the compatibility chart yet — no score can be calculated.
+        </p>
+      );
     }
     return (
       <div className="mt-3">
@@ -154,6 +158,21 @@ function CompatibilityBadge({
   }
 
   const score = lead.compatibility_score;
+
+  // No score *and* no chart entry means the combination was never rated —
+  // saying "Not Compatible" there would be asserting a verdict the data
+  // doesn't support.
+  if (score === null && !lead.compatibility_in_chart && !lead.is_score_overridden) {
+    return (
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="tag tag-outline">Not rated</span>
+        <span className="text-xs text-(--color-label)">
+          {lead.nakshatra} padam {lead.nakshatra_padam} isn&apos;t in the compatibility chart yet.
+        </span>
+      </div>
+    );
+  }
+
   const compatible = score !== null && score >= COMPATIBILITY_THRESHOLD;
 
   return (

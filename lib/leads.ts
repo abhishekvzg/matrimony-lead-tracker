@@ -1,7 +1,13 @@
 import "server-only";
 import { supabaseAdmin, LEAD_ATTACHMENTS_BUCKET } from "./supabase";
 import { calculateAge } from "./age";
-import { getPadamOptions, lookupCompatibilityScore } from "./nakshatra";
+import {
+  chartCovers,
+  loadScoreChart,
+  lookupCompatibilityScore,
+  padamOptionsFromChart,
+  type ScoreChart,
+} from "./nakshatra";
 import type {
   Attachment,
   Contact,
@@ -49,11 +55,13 @@ async function withProfilePictureSignedUrl(
   return data?.signedUrl ?? null;
 }
 
-async function attachRelations(lead: RawLead): Promise<LeadWithRelations> {
-  const [attachments, profile_picture_url, padam_options] = await Promise.all([
+async function attachRelations(
+  lead: RawLead,
+  chart: ScoreChart
+): Promise<LeadWithRelations> {
+  const [attachments, profile_picture_url] = await Promise.all([
     withSignedUrls(lead.attachments ?? []),
     withProfilePictureSignedUrl(lead.profile_picture_url),
-    lead.nakshatra && !lead.nakshatra_padam ? getPadamOptions(lead.nakshatra) : null,
   ]);
   return {
     ...lead,
@@ -62,7 +70,13 @@ async function attachRelations(lead: RawLead): Promise<LeadWithRelations> {
     interactions: lead.interactions ?? [],
     contacts: lead.contacts ?? [],
     profile_picture_url,
-    padam_options,
+    padam_options:
+      lead.nakshatra && !lead.nakshatra_padam
+        ? padamOptionsFromChart(chart, lead.nakshatra)
+        : null,
+    // Distinguishes "scored as not compatible" from "this combination isn't
+    // in the chart yet", which otherwise both arrive as a null score.
+    compatibility_in_chart: chartCovers(chart, lead.nakshatra, lead.nakshatra_padam),
   };
 }
 
@@ -83,7 +97,8 @@ export async function listLeadsWithRelations(
 
   if (error) throw error;
 
-  return Promise.all((data as RawLead[]).map(attachRelations));
+  const chart = await loadScoreChart();
+  return Promise.all((data as RawLead[]).map((lead) => attachRelations(lead, chart)));
 }
 
 export async function getLeadWithRelations(
@@ -102,7 +117,7 @@ export async function getLeadWithRelations(
   if (error) throw error;
   if (!data) return null;
 
-  return attachRelations(data as RawLead);
+  return attachRelations(data as RawLead, await loadScoreChart());
 }
 
 export async function createLead(

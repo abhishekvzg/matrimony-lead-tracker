@@ -237,7 +237,13 @@ function summarize(lead: LeadWithRelations, baseUrl: string) {
     nakshatra: lead.nakshatra,
     nakshatra_padam: lead.nakshatra_padam,
     compatibility_score: score === null ? null : `${score}/36`,
-    compatible: score === null ? null : score >= COMPATIBILITY_THRESHOLD,
+    compatible:
+      score === null
+        ? lead.compatibility_in_chart
+          ? false // rated as not compatible, with no point total recorded
+          : null // never rated — do not report this as incompatible
+        : score >= COMPATIBILITY_THRESHOLD,
+    compatibility_rated: lead.compatibility_in_chart || score !== null,
     interactions_logged: lead.interactions.length,
     last_interaction: lastInteractionDate(lead),
     added: lead.created_at.slice(0, 10),
@@ -268,7 +274,13 @@ function detail(lead: LeadWithRelations, baseUrl: string) {
     nakshatra: lead.nakshatra,
     nakshatra_padam: lead.nakshatra_padam,
     compatibility_score: score === null ? null : `${score}/36`,
-    compatible: score === null ? null : score >= COMPATIBILITY_THRESHOLD,
+    compatible:
+      score === null
+        ? lead.compatibility_in_chart
+          ? false // rated as not compatible, with no point total recorded
+          : null // never rated — do not report this as incompatible
+        : score >= COMPATIBILITY_THRESHOLD,
+    compatibility_rated: lead.compatibility_in_chart || score !== null,
     compatibility_manually_set: lead.is_score_overridden,
     religion: lead.religion,
     caste: lead.caste,

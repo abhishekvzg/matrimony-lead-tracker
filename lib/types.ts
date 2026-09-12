@@ -134,6 +134,11 @@ export interface LeadWithRelations extends Lead {
   // Populated only when nakshatra is known but padam isn't — every padam's
   // score for that nakshatra, so the UI can offer them instead of nothing.
   padam_options: { padam: string; score: number | null }[] | null;
+  // Whether this (nakshatra, padam) pair exists in the compatibility chart at
+  // all. A null compatibility_score means "not compatible, no point total" if
+  // this is true, but "we have no data for this combination" if it's false —
+  // and those must not be shown to the family as the same thing.
+  compatibility_in_chart: boolean;
 }
 
 // Fields Gemini extracts from a bio-data image/text. All nullable — the UI
