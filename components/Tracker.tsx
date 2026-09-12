@@ -39,12 +39,14 @@ type SortBy = "updated" | "name" | "age";
 
 export default function Tracker({
   initialLeads,
+  initialSelectedLeadId = null,
 }: {
   initialLeads: LeadWithRelations[];
+  initialSelectedLeadId?: string | null;
 }) {
   const [leads, setLeads] = useState(initialLeads);
   const [loading, setLoading] = useState(false);
-  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(initialSelectedLeadId);
   const [modalOpen, setModalOpen] = useState(false);
 
   const [search, setSearch] = useState("");
