@@ -84,6 +84,19 @@ export const NAKSHATRAS = [
 
 export type Nakshatra = (typeof NAKSHATRAS)[number];
 
+// Biodatas spell these many different ways. Shared by the Gemini extraction
+// prompt and the MCP tool schema so both normalize to the same 27 values —
+// they encode the same domain knowledge and must not drift apart.
+export const NAKSHATRA_NORMALIZATION_HINT =
+  "Match common alternate spellings to the closest value: Ardra -> Aarudra, " +
+  "Chitra -> Chitta, Swati -> Swathi, Magha -> Makha, Mula -> Moola, " +
+  "Shatabhisha/Sadhabisham -> Satabhisha, Purva Phalguni -> Pubba, " +
+  "Uttara Phalguni -> Uttara, Purva Ashada/Purvashadha -> Purvashada, " +
+  "Uttara Ashada -> Uttarashada, Purva Bhadrapada -> Purvabhadra, " +
+  "Uttara Bhadrapada -> Uttarabhadra, Revati -> Revathi, Shravana -> Shravanam, " +
+  "Hasta -> Hastha, Pushya -> Pushyami. If it cannot be confidently mapped to " +
+  "one of the 27 values, leave it out rather than inventing one.";
+
 export const NAKSHATRA_PADAMS = ["1", "2", "3", "4"] as const;
 
 export type NakshatraPadam = (typeof NAKSHATRA_PADAMS)[number];

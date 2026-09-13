@@ -12,6 +12,7 @@ import {
   COMPATIBILITY_THRESHOLD,
   LEAD_STATUSES,
   NAKSHATRAS,
+  NAKSHATRA_NORMALIZATION_HINT,
   SPOKE_BY_OPTIONS,
   type ExtractedLeadFields,
   type LeadStatus,
@@ -128,7 +129,7 @@ export const MCP_TOOLS: McpTool[] = [
   {
     name: "create_lead",
     description:
-      "Add a new marriage prospect profile. Only pass fields you actually know — never invent values. Age is derived automatically when date_of_birth is given.",
+      "Add a new marriage prospect profile. Typically used after reading a biodata document the user shared: extract what the document actually states, show the user the fields before saving so they can correct anything, then call this. Only pass fields the source actually contains — never infer or invent values, and leave a field out entirely rather than guessing it. Age is derived automatically when date_of_birth is given.",
     inputSchema: {
       type: "object",
       properties: {
@@ -203,11 +204,26 @@ function fieldProperties(): Record<string, unknown> {
           "Only use when date_of_birth is unknown — otherwise age is derived from it automatically.",
       };
     } else if (key === "date_of_birth") {
-      props[key] = { type: "string", description: "YYYY-MM-DD." };
+      props[key] = {
+        type: "string",
+        description: "YYYY-MM-DD. Leave out if only a partial date is given.",
+      };
     } else if (key === "nakshatra") {
-      props[key] = { type: "string", enum: [...NAKSHATRAS] };
+      props[key] = {
+        type: "string",
+        enum: [...NAKSHATRAS],
+        description: NAKSHATRA_NORMALIZATION_HINT,
+      };
     } else if (key === "nakshatra_padam") {
       props[key] = { type: "string", enum: ["1", "2", "3", "4"] };
+    } else if (key === "other_details") {
+      props[key] = {
+        type: "string",
+        description:
+          "Catch-all for anything relevant that doesn't fit the named fields " +
+          "(visa status, native place, maternal gothram, sister's occupation, " +
+          "profile IDs, and so on). Put it here rather than dropping it.",
+      };
     } else {
       props[key] = { type: "string" };
     }

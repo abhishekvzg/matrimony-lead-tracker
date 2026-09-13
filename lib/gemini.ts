@@ -3,6 +3,7 @@ import { ApiError, GoogleGenAI, createPartFromBase64, createUserContent } from "
 import {
   EXTRACTED_FIELD_KEYS,
   NAKSHATRAS,
+  NAKSHATRA_NORMALIZATION_HINT,
   NAKSHATRA_PADAMS,
   type ExtractedContact,
   type ExtractedLeadFields,
@@ -103,15 +104,9 @@ Return ONLY valid JSON, no markdown, no explanation, matching exactly this shape
 Field notes:
 - "date_of_birth": format as "YYYY-MM-DD". If only a partial date is given, use null.
 - "time_of_birth": keep as written (e.g. "01:06 PM").
-- "nakshatra": normalize to EXACTLY one of these 27 values, matching common
-  alternate spellings to the closest one in this list: ${NAKSHATRAS.join(", ")}.
-  For example: Ardra -> Aarudra, Chitra -> Chitta, Swati -> Swathi, Magha -> Makha,
-  Mula -> Moola, Shatabhisha/Sadhabisham -> Satabhisha, Purva Phalguni -> Pubba,
-  Uttara Phalguni -> Uttara, Purva Ashada/Purvashadha -> Purvashada,
-  Uttara Ashada -> Uttarashada, Purva Bhadrapada -> Purvabhadra,
-  Uttara Bhadrapada -> Uttarabhadra, Revati -> Revathi, Shravana -> Shravanam,
-  Hasta -> Hastha, Pushya -> Pushyami. If you cannot confidently map it to one
-  of the 27 values, use null — do not invent a value outside this list.
+- "nakshatra": normalize to EXACTLY one of these 27 values: ${NAKSHATRAS.join(", ")}.
+  ${NAKSHATRA_NORMALIZATION_HINT}
+  Use null rather than a value outside this list.
 - "nakshatra_padam": one of "${NAKSHATRA_PADAMS.join('", "')}" (as a string), or null.
 - "contacts": find every phone number in the input, even if several are listed
   together (e.g. "Contact: 98765xxxxx, Father: 98123xxxxx"). Split each into
