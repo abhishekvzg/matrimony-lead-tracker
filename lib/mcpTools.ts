@@ -134,20 +134,15 @@ export const MCP_TOOLS: McpTool[] = [
       type: "object",
       properties: {
         ...fieldProperties(),
+        // Deliberately an array of plain strings rather than of objects: a
+        // nested object array made some clients reject this whole tool
+        // definition, which the MCP spec requires them to drop silently — so
+        // create_lead simply vanished from their tool list.
         contacts: {
           type: "array",
-          description: "Phone numbers for this prospect.",
-          items: {
-            type: "object",
-            properties: {
-              label: {
-                type: "string",
-                description: "Whose number it is, e.g. 'Father', 'Self'.",
-              },
-              phone_number: { type: "string" },
-            },
-            required: ["phone_number"],
-          },
+          items: { type: "string" },
+          description:
+            'Phone numbers, each written as "Label: number" — e.g. "Father: +91 98765 43210" or "Self: +91 91234 56789". Give just the number if the source does not say whose it is.',
         },
       },
     },
@@ -351,6 +346,29 @@ function pickFields(args: Record<string, unknown>): WritableFieldValues {
   return fields as WritableFieldValues;
 }
 
+// Accepts either "Father: +91 98765 43210" or a bare number, and still
+// tolerates the {label, phone_number} object form in case a client sends it.
+function parseContact(entry: unknown): { label: string | null; phone_number: string } | null {
+  if (typeof entry === "object" && entry !== null) {
+    const o = entry as Record<string, unknown>;
+    const phone = asString(o.phone_number);
+    return phone ? { label: asString(o.label) ?? null, phone_number: phone } : null;
+  }
+
+  const raw = asString(entry);
+  if (!raw) return null;
+
+  const separator = raw.indexOf(":");
+  if (separator > 0) {
+    const label = raw.slice(0, separator).trim();
+    const phone = raw.slice(separator + 1).trim();
+    // Only a prefix containing letters is a label — guards against splitting
+    // a number that happens to contain a colon.
+    if (phone && /[a-z]/i.test(label)) return { label, phone_number: phone };
+  }
+  return { label: null, phone_number: raw };
+}
+
 async function allLeads(includeHidden: boolean): Promise<LeadWithRelations[]> {
   if (!includeHidden) return listLeadsWithRelations(false);
   const [active, hidden] = await Promise.all([
@@ -452,12 +470,8 @@ export async function runMcpTool(
 
       if (Array.isArray(args.contacts)) {
         const contacts = args.contacts
-          .filter((c): c is Record<string, unknown> => typeof c === "object" && c !== null)
-          .map((c) => ({
-            label: asString(c.label) ?? null,
-            phone_number: asString(c.phone_number) ?? "",
-          }))
-          .filter((c) => c.phone_number.length > 0);
+          .map(parseContact)
+          .filter((c): c is { label: string | null; phone_number: string } => c !== null);
         if (contacts.length > 0) await createContacts(lead.id, contacts);
       }
 
