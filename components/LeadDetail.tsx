@@ -3,6 +3,8 @@
 import { useState } from "react";
 import {
   COMPATIBILITY_THRESHOLD,
+  EXTRACTION_ACCEPT,
+  isPdfAttachment,
   type Interaction,
   type LeadStatus,
   type LeadWithRelations,
@@ -381,10 +383,10 @@ export default function LeadDetail({
         <div className="mb-2 flex items-center justify-between">
           <p className="kicker mb-0">Attachments</p>
           <label className="cursor-pointer text-xs font-medium text-accent-700 hover:text-accent-900">
-            {attachmentsBusy ? "Uploading…" : "+ Add photos"}
+            {attachmentsBusy ? "Uploading…" : "+ Add files"}
             <input
               type="file"
-              accept="image/*"
+              accept={EXTRACTION_ACCEPT}
               multiple
               className="hidden"
               disabled={attachmentsBusy}
@@ -395,19 +397,37 @@ export default function LeadDetail({
         {attachmentsError && <p className="mb-2 text-xs text-red-600">{attachmentsError}</p>}
         {lead.attachments.length > 0 ? (
           <div className="flex flex-wrap gap-2">
-            {lead.attachments.map((a) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={a.id}
-                src={a.file_url}
-                alt={a.file_name ?? "Attachment"}
-                onClick={() => setLightbox({ url: a.file_url, name: a.file_name })}
-                className="h-20 w-20 cursor-pointer rounded-md border border-(--color-divider) object-cover transition-opacity hover:opacity-80"
-              />
-            ))}
+            {lead.attachments.map((a) =>
+              isPdfAttachment(a) ? (
+                // A PDF has nothing to show in an <img>, so it gets a labelled
+                // tile that opens the document in a new tab instead.
+                <a
+                  key={a.id}
+                  href={a.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={a.file_name ?? "PDF"}
+                  className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-md border border-(--color-divider) p-1 text-center transition-opacity hover:opacity-80"
+                >
+                  <span className="text-xl leading-none">📄</span>
+                  <span className="w-full truncate text-[10px] text-(--color-label)">
+                    {a.file_name ?? "PDF"}
+                  </span>
+                </a>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={a.id}
+                  src={a.file_url}
+                  alt={a.file_name ?? "Attachment"}
+                  onClick={() => setLightbox({ url: a.file_url, name: a.file_name })}
+                  className="h-20 w-20 cursor-pointer rounded-md border border-(--color-divider) object-cover transition-opacity hover:opacity-80"
+                />
+              )
+            )}
           </div>
         ) : (
-          <p className="text-sm text-(--color-label)">No photos yet.</p>
+          <p className="text-sm text-(--color-label)">Nothing attached yet.</p>
         )}
       </div>
 

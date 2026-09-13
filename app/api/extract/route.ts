@@ -1,35 +1,68 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { extractLeadFields, GeminiQuotaExceededError } from "@/lib/gemini";
-import { MAX_EXTRACTION_IMAGES } from "@/lib/types";
+import {
+  MAX_EXTRACTION_FILES,
+  MAX_EXTRACTION_FILE_BYTES,
+  isPdfFileName,
+} from "@/lib/types";
 
-// The Gemini call runs against full-size images here; the platform default
-// of 10s is too tight and was causing intermittent timeouts on upload.
+// The Gemini call runs against full-size images or PDFs here; the platform
+// default of 10s is too tight and was causing intermittent timeouts on upload.
 export const maxDuration = 60;
+
+function mimeTypeFor(file: File): string | null {
+  if (file.type === "application/pdf" || isPdfFileName(file.name)) {
+    return "application/pdf";
+  }
+  if (file.type.startsWith("image/")) return file.type;
+  // Some browsers hand over an empty type for files picked from cloud
+  // storage; fall back to JPEG only when it isn't recognisably a PDF.
+  if (!file.type) return "image/jpeg";
+  return null;
+}
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const text = formData.get("text");
-  // Capped at MAX_EXTRACTION_IMAGES (a 2-page biodata) — more than that
+  // Capped at MAX_EXTRACTION_FILES (a 2-page biodata) — more than that
   // pushes Gemini's processing time past the per-attempt timeout. Bulk/
   // reference photos belong in the attachments endpoint, which stores them
   // directly with no Gemini call at all.
-  const imageFiles = formData
+  const uploads = formData
     .getAll("images")
-    .filter((f): f is File => f instanceof File)
-    .slice(0, MAX_EXTRACTION_IMAGES);
+    .filter((f): f is File => f instanceof File && f.size > 0)
+    .slice(0, MAX_EXTRACTION_FILES);
 
-  if (imageFiles.length === 0 && typeof text !== "string") {
+  if (uploads.length === 0 && typeof text !== "string") {
     return NextResponse.json(
-      { error: "Provide at least one image or some text" },
+      { error: "Provide at least one image or PDF, or some text" },
       { status: 400 }
     );
   }
 
+  for (const file of uploads) {
+    if (mimeTypeFor(file) === null) {
+      return NextResponse.json(
+        { error: `${file.name || "That file"} isn't an image or a PDF.` },
+        { status: 400 }
+      );
+    }
+    if (file.size > MAX_EXTRACTION_FILE_BYTES) {
+      const mb = (MAX_EXTRACTION_FILE_BYTES / (1024 * 1024)).toFixed(0);
+      return NextResponse.json(
+        {
+          error: `${file.name || "That file"} is too large (limit ${mb}MB). Try a smaller scan, or split the PDF.`,
+        },
+        { status: 413 }
+      );
+    }
+  }
+
   const images = await Promise.all(
-    imageFiles.map(async (file) => ({
+    uploads.map(async (file) => ({
       base64: Buffer.from(await file.arrayBuffer()).toString("base64"),
-      mimeType: file.type || "image/jpeg",
+      mimeType: mimeTypeFor(file) as string,
     }))
   );
 

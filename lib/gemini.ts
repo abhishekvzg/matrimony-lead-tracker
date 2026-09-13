@@ -69,7 +69,7 @@ async function withRetry<T>(fn: (timeoutMs: number) => Promise<T>): Promise<T> {
   }
 }
 
-const EXTRACTION_PROMPT = `You are extracting structured data from an Indian matrimony bio-data (image or text).
+const EXTRACTION_PROMPT = `You are extracting structured data from an Indian matrimony bio-data, supplied as an image, a PDF, or text. A PDF may run to several pages — read all of them and combine what you find into one profile.
 Return ONLY valid JSON, no markdown, no explanation, matching exactly this shape:
 {
   "name": string or null,

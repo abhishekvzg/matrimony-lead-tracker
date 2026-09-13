@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { GEMINI_QUOTA_MESSAGE, MAX_EXTRACTION_IMAGES, type ExtractedLeadFields } from "@/lib/types";
+import {
+  EXTRACTION_ACCEPT,
+  GEMINI_QUOTA_MESSAGE,
+  MAX_EXTRACTION_FILES,
+  isPdfFileName,
+  type ExtractedLeadFields,
+} from "@/lib/types";
 import LeadFieldsForm, { type ContactDraft } from "./LeadFieldsForm";
 import ManualCropModal from "./ManualCropModal";
 
@@ -55,7 +61,17 @@ export default function AddLeadModal({
   const [dpPreviewUrl, setDpPreviewUrl] = useState<string | null>(null);
   const [lastExtractedSignature, setLastExtractedSignature] = useState<string | null>(null);
 
-  const fileObjectUrls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
+  // Only images can be cropped into a profile picture — a PDF has nothing to
+  // show in an <img>, so it's left out of the picker below.
+  const croppableImages = useMemo(
+    () => files.filter((f) => !isPdfFileName(f.name) && f.type !== "application/pdf"),
+    [files]
+  );
+
+  const fileObjectUrls = useMemo(
+    () => croppableImages.map((f) => URL.createObjectURL(f)),
+    [croppableImages]
+  );
 
   useEffect(() => {
     return () => fileObjectUrls.forEach((u) => URL.revokeObjectURL(u));
@@ -69,7 +85,7 @@ export default function AddLeadModal({
 
   async function handleExtract() {
     if (files.length === 0 && !text.trim()) {
-      setError("Add at least one image or some text.");
+      setError("Add at least one image or PDF, or some text.");
       return;
     }
 
@@ -185,13 +201,15 @@ export default function AddLeadModal({
           {step === "input" && (
             <>
               <div>
-                <label className="mb-1 block text-sm font-medium text-ink">Screenshot(s)</label>
+                <label className="mb-1 block text-sm font-medium text-ink">
+                  Screenshot(s) or PDF
+                </label>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept={EXTRACTION_ACCEPT}
                   multiple
                   onChange={(e) =>
-                    setFiles(Array.from(e.target.files ?? []).slice(0, MAX_EXTRACTION_IMAGES))
+                    setFiles(Array.from(e.target.files ?? []).slice(0, MAX_EXTRACTION_FILES))
                   }
                   className="block w-full text-sm text-(--color-label) file:mr-3 file:rounded-md file:border-0 file:bg-accent-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-accent-700 hover:file:bg-accent-200"
                 />
@@ -201,8 +219,8 @@ export default function AddLeadModal({
                   </p>
                 )}
                 <p className="mt-1 text-xs text-(--color-label)">
-                  Up to {MAX_EXTRACTION_IMAGES} images (e.g. a 2-page biodata) — add more photos
-                  from the lead&apos;s page after saving.
+                  Up to {MAX_EXTRACTION_FILES} files — images or a PDF (all pages are read).
+                  Add more photos from the lead&apos;s page after saving.
                 </p>
               </div>
               <div>

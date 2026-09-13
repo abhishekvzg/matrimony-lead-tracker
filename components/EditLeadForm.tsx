@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { type ExtractedLeadFields, type LeadWithRelations } from "@/lib/types";
+import { useMemo, useState } from "react";
+import { isPdfAttachment, type ExtractedLeadFields, type LeadWithRelations } from "@/lib/types";
 import LeadFieldsForm, { type ContactDraft } from "./LeadFieldsForm";
 import Avatar from "./Avatar";
 import ManualCropModal from "./ManualCropModal";
@@ -58,6 +58,13 @@ export default function EditLeadForm({
   const [avatarError, setAvatarError] = useState("");
   const [showAttachmentPicker, setShowAttachmentPicker] = useState(false);
   const [cropImage, setCropImage] = useState<{ src: string; isObjectUrl: boolean } | null>(null);
+
+  // PDFs can't be cropped into a profile picture, so they're excluded from
+  // the picker rather than shown as broken thumbnails.
+  const photoAttachments = useMemo(
+    () => lead.attachments.filter((a) => !isPdfAttachment(a)),
+    [lead.attachments]
+  );
 
   function updateField(key: keyof ExtractedLeadFields, value: string) {
     setFields((prev) => ({
@@ -201,7 +208,7 @@ export default function EditLeadForm({
                 }}
               />
             </label>
-            {lead.attachments.length > 0 && (
+            {photoAttachments.length > 0 && (
               <button
                 type="button"
                 onClick={() => setShowAttachmentPicker(true)}
@@ -242,7 +249,7 @@ export default function EditLeadForm({
               </button>
             </div>
             <div className="flex flex-wrap gap-2">
-              {lead.attachments.map((a) => (
+              {photoAttachments.map((a) => (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   key={a.id}

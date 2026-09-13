@@ -19,10 +19,34 @@ export type SpokeBy = (typeof SPOKE_BY_OPTIONS)[number];
 export const GEMINI_QUOTA_MESSAGE =
   "Gemini's free daily limit has been used up for today — try again tomorrow.";
 
-// More images per extraction call means more processing time for Gemini —
+// More files per extraction call means more processing time for Gemini —
 // 2 covers a 2-page biodata while keeping calls comfortably inside the
-// per-attempt timeout in lib/gemini.ts.
-export const MAX_EXTRACTION_IMAGES = 2;
+// per-attempt timeout in lib/gemini.ts. A PDF counts as one file no matter
+// how many pages it has, so MAX_EXTRACTION_FILE_BYTES is what actually
+// bounds the work in that case.
+export const MAX_EXTRACTION_FILES = 2;
+
+// Everything is sent to Gemini as inline base64 inside a single request, so
+// the binding limit is the serverless request body (~4.5MB on Vercel), not
+// Gemini's own 50MB document ceiling.
+export const MAX_EXTRACTION_FILE_BYTES = 4 * 1024 * 1024;
+
+export const EXTRACTION_ACCEPT = "image/*,application/pdf";
+
+export function isPdfFileName(name: string | null | undefined): boolean {
+  return !!name && name.toLowerCase().trim().endsWith(".pdf");
+}
+
+// Attachments have no stored mime type, but uploadAttachment preserves the
+// original extension in both the file name and the storage path.
+export function isPdfAttachment(attachment: {
+  file_name: string | null;
+  file_url: string;
+}): boolean {
+  if (attachment.file_name) return isPdfFileName(attachment.file_name);
+  // Signed URLs carry a query string; compare against the path only.
+  return isPdfFileName(attachment.file_url.split("?")[0]);
+}
 
 // Canonical nakshatra vocabulary, spelled the way this family's biodata
 // documents and nakshatra_scores table use them. Extraction is instructed
