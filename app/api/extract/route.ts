@@ -3,7 +3,8 @@ import type { NextRequest } from "next/server";
 import { extractLeadFields, GeminiQuotaExceededError } from "@/lib/gemini";
 import {
   MAX_EXTRACTION_FILES,
-  MAX_EXTRACTION_FILE_BYTES,
+  MAX_EXTRACTION_UPLOAD_BYTES,
+  formatBytes,
   isPdfFileName,
 } from "@/lib/types";
 
@@ -48,15 +49,18 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    if (file.size > MAX_EXTRACTION_FILE_BYTES) {
-      const mb = (MAX_EXTRACTION_FILE_BYTES / (1024 * 1024)).toFixed(0);
-      return NextResponse.json(
-        {
-          error: `${file.name || "That file"} is too large (limit ${mb}MB). Try a smaller scan, or split the PDF.`,
-        },
-        { status: 413 }
-      );
-    }
+  }
+
+  const totalBytes = uploads.reduce((sum, f) => sum + f.size, 0);
+  if (totalBytes > MAX_EXTRACTION_UPLOAD_BYTES) {
+    return NextResponse.json(
+      {
+        error: `Those files total ${formatBytes(totalBytes)}, over the ${formatBytes(
+          MAX_EXTRACTION_UPLOAD_BYTES
+        )} limit. Try a smaller scan, or split the PDF.`,
+      },
+      { status: 413 }
+    );
   }
 
   const images = await Promise.all(

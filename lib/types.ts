@@ -28,8 +28,16 @@ export const MAX_EXTRACTION_FILES = 2;
 
 // Everything is sent to Gemini as inline base64 inside a single request, so
 // the binding limit is the serverless request body (~4.5MB on Vercel), not
-// Gemini's own 50MB document ceiling.
-export const MAX_EXTRACTION_FILE_BYTES = 4 * 1024 * 1024;
+// Gemini's own 50MB document ceiling. This is a budget for the whole upload,
+// not per file — two 3MB scans would breach it together. Anything over the
+// platform limit is rejected by Vercel before route code runs at all, which
+// is why the client checks this too.
+export const MAX_EXTRACTION_UPLOAD_BYTES = 4 * 1024 * 1024;
+
+export function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))}KB`;
+}
 
 export const EXTRACTION_ACCEPT = "image/*,application/pdf";
 

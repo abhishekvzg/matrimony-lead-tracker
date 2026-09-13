@@ -4,6 +4,8 @@ import { useState } from "react";
 import {
   COMPATIBILITY_THRESHOLD,
   EXTRACTION_ACCEPT,
+  MAX_EXTRACTION_UPLOAD_BYTES,
+  formatBytes,
   isPdfAttachment,
   type Interaction,
   type LeadStatus,
@@ -213,21 +215,40 @@ export default function LeadDetail({
 
     setAttachmentsBusy(true);
     setAttachmentsError("");
+
+    const tooBig = files.filter((f) => f.size > MAX_EXTRACTION_UPLOAD_BYTES);
+    const uploadable = files.filter((f) => f.size <= MAX_EXTRACTION_UPLOAD_BYTES);
+    let failed = 0;
+
     try {
-      const formData = new FormData();
-      files.forEach((f) => formData.append("files", f));
-      const res = await fetch(`/api/leads/${lead.id}/attachments`, {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) throw new Error("upload failed");
+      // One request per file: phone photos run several MB each, and a combined
+      // upload would be rejected by the platform's body limit before the route
+      // ever saw it. Sequential also means a late failure doesn't discard the
+      // files that already landed.
+      for (const file of uploadable) {
+        const formData = new FormData();
+        formData.append("files", file);
+        const res = await fetch(`/api/leads/${lead.id}/attachments`, {
+          method: "POST",
+          body: formData,
+        });
+        if (!res.ok) failed++;
+      }
 
       const freshRes = await fetch(`/api/leads/${lead.id}`);
       if (!freshRes.ok) throw new Error("refetch failed");
       const { lead: freshLead } = await freshRes.json();
       onLeadUpdated(freshLead);
+
+      const problems = [
+        ...tooBig.map(
+          (f) => `${f.name} is ${formatBytes(f.size)} — too large (limit ${formatBytes(MAX_EXTRACTION_UPLOAD_BYTES)})`
+        ),
+        ...(failed > 0 ? [`${failed} file(s) failed to upload`] : []),
+      ];
+      if (problems.length > 0) setAttachmentsError(problems.join("; "));
     } catch {
-      setAttachmentsError("Couldn't upload those photos. Try again.");
+      setAttachmentsError("Couldn't upload those files. Try again.");
     } finally {
       setAttachmentsBusy(false);
     }

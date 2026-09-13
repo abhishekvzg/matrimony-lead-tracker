@@ -5,6 +5,8 @@ import {
   EXTRACTION_ACCEPT,
   GEMINI_QUOTA_MESSAGE,
   MAX_EXTRACTION_FILES,
+  MAX_EXTRACTION_UPLOAD_BYTES,
+  formatBytes,
   isPdfFileName,
   type ExtractedLeadFields,
 } from "@/lib/types";
@@ -208,9 +210,28 @@ export default function AddLeadModal({
                   type="file"
                   accept={EXTRACTION_ACCEPT}
                   multiple
-                  onChange={(e) =>
-                    setFiles(Array.from(e.target.files ?? []).slice(0, MAX_EXTRACTION_FILES))
-                  }
+                  onChange={(e) => {
+                    const picked = Array.from(e.target.files ?? []).slice(
+                      0,
+                      MAX_EXTRACTION_FILES
+                    );
+                    const total = picked.reduce((sum, f) => sum + f.size, 0);
+                    // Caught here because anything past the platform's body
+                    // limit is rejected before the route runs, so the server's
+                    // own message would never reach the user.
+                    if (total > MAX_EXTRACTION_UPLOAD_BYTES) {
+                      e.target.value = "";
+                      setFiles([]);
+                      setError(
+                        `That's ${formatBytes(total)} — too big to upload (limit ${formatBytes(
+                          MAX_EXTRACTION_UPLOAD_BYTES
+                        )}). Try a smaller scan, fewer pages, or paste the text instead.`
+                      );
+                      return;
+                    }
+                    setError("");
+                    setFiles(picked);
+                  }}
                   className="block w-full text-sm text-(--color-label) file:mr-3 file:rounded-md file:border-0 file:bg-accent-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-accent-700 hover:file:bg-accent-200"
                 />
                 {files.length > 0 && (
