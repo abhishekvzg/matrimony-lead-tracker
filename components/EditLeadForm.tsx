@@ -41,13 +41,11 @@ export default function EditLeadForm({
   onSaved,
   onLeadRefresh,
   onCancel,
-  onDeleted,
 }: {
   lead: LeadWithRelations;
   onSaved: (lead: LeadWithRelations) => void;
   onLeadRefresh: (lead: LeadWithRelations) => void;
   onCancel: () => void;
-  onDeleted: (id: string) => void;
 }) {
   const [fields, setFields] = useState<ExtractedLeadFields>(leadToFields(lead));
   const [contacts, setContacts] = useState<ContactDraft[]>(
@@ -60,22 +58,6 @@ export default function EditLeadForm({
   const [avatarError, setAvatarError] = useState("");
   const [showAttachmentPicker, setShowAttachmentPicker] = useState(false);
   const [cropImage, setCropImage] = useState<{ src: string; isObjectUrl: boolean } | null>(null);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
-
-  async function handleDelete() {
-    setDeleting(true);
-    setDeleteError("");
-    try {
-      const res = await fetch(`/api/leads/${lead.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("delete failed");
-      onDeleted(lead.id);
-    } catch {
-      setDeleteError("Couldn't delete this profile. Try again.");
-      setDeleting(false);
-    }
-  }
 
   // PDFs can't be cropped into a profile picture, so they're excluded from
   // the picker rather than shown as broken thumbnails.
@@ -311,47 +293,6 @@ export default function EditLeadForm({
         >
           {saving ? "Saving…" : "Save"}
         </button>
-      </div>
-
-      <div className="mt-2 border-t border-(--color-divider) pt-4">
-        {confirmingDelete ? (
-          <div className="flex flex-col gap-2">
-            <p className="text-sm text-ink">
-              Delete <strong>{lead.name || "this profile"}</strong> permanently? This also
-              removes {lead.interactions.length} interaction
-              {lead.interactions.length === 1 ? "" : "s"}, {lead.contacts.length} contact
-              {lead.contacts.length === 1 ? "" : "s"} and {lead.attachments.length} file
-              {lead.attachments.length === 1 ? "" : "s"}. It can&apos;t be undone.
-            </p>
-            {deleteError && <p className="text-xs text-red-600">{deleteError}</p>}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmingDelete(false)}
-                disabled={deleting}
-                className="btn btn-secondary flex-1"
-              >
-                Keep it
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="btn flex-1 border-red-300 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-              >
-                {deleting ? "Deleting…" : "Yes, delete"}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setConfirmingDelete(true)}
-            className="text-xs font-medium text-(--color-label) hover:text-red-600"
-          >
-            Delete this profile
-          </button>
-        )}
       </div>
     </div>
   );
