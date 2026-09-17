@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getLeadWithRelations, updateLead, type LeadPatch } from "@/lib/leads";
+import { deleteLead, getLeadWithRelations, updateLead, type LeadPatch } from "@/lib/leads";
 import { EXTRACTED_FIELD_KEYS, LEAD_STATUSES } from "@/lib/types";
 
 const PATCHABLE_KEYS = [...EXTRACTED_FIELD_KEYS, "source"] as const;
@@ -60,4 +60,24 @@ export async function PATCH(
 
   const lead = await updateLead(id, patch);
   return NextResponse.json({ lead });
+}
+
+// Permanent, and takes the lead's interactions, contacts, photos and stored
+// files with it. Deliberately not exposed as an MCP tool — deleting family
+// records shouldn't be one model mis-step away.
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  try {
+    await deleteLead(id);
+  } catch (err) {
+    if (err instanceof Error && err.message === "Lead not found") {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    console.error("Failed to delete lead", id, err);
+    return NextResponse.json({ error: "Couldn't delete this profile" }, { status: 500 });
+  }
+  return NextResponse.json({ deleted: true });
 }

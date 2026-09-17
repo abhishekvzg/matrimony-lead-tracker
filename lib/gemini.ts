@@ -104,6 +104,13 @@ Return ONLY valid JSON, no markdown, no explanation, matching exactly this shape
 Field notes:
 - "date_of_birth": format as "YYYY-MM-DD". If only a partial date is given, use null.
 - "time_of_birth": keep as written (e.g. "01:06 PM").
+- "location": where the candidate currently lives, as a short place name only —
+  "Hyderabad", "Seattle", "Bangalore, India". Never put a street address, door or
+  flat number, visa status or work arrangement here. If the source only gives a
+  full postal address, put the whole thing in "address" and use just the city
+  (and state/country) here.
+- "address": the full postal address when one is given, including door/flat
+  number, street and PIN code. Leave null if the source has no postal address.
 - "nakshatra": normalize to EXACTLY one of these 27 values: ${NAKSHATRAS.join(", ")}.
   ${NAKSHATRA_NORMALIZATION_HINT}
   Use null rather than a value outside this list.

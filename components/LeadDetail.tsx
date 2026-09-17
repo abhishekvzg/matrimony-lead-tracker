@@ -196,10 +196,12 @@ export default function LeadDetail({
   lead,
   onInteractionAdded,
   onLeadUpdated,
+  onLeadDeleted,
 }: {
   lead: LeadWithRelations;
   onInteractionAdded: (interaction: Interaction, status: LeadStatus) => void;
   onLeadUpdated: (lead: LeadWithRelations) => void;
+  onLeadDeleted: (id: string) => void;
 }) {
   const [lightbox, setLightbox] = useState<{ url: string; name: string | null } | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -283,6 +285,7 @@ export default function LeadDetail({
           }}
           onLeadRefresh={onLeadUpdated}
           onCancel={() => setIsEditing(false)}
+          onDeleted={onLeadDeleted}
         />
       </div>
     );
@@ -292,7 +295,9 @@ export default function LeadDetail({
 
   return (
     <div className="card flex flex-col gap-5 p-4 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      {/* Not flex-wrap: on a narrow screen the Edit button used to wrap onto
+          its own line and sit orphaned under the tags. */}
+      <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-4">
           <Avatar name={lead.name} url={lead.profile_picture_url} size={64} />
           <div className="min-w-0">
@@ -306,7 +311,11 @@ export default function LeadDetail({
             </div>
           </div>
         </div>
-        <button type="button" onClick={() => setIsEditing(true)} className="btn btn-ghost">
+        <button
+          type="button"
+          onClick={() => setIsEditing(true)}
+          className="btn btn-ghost shrink-0"
+        >
           Edit
         </button>
       </div>

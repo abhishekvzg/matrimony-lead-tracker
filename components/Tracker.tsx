@@ -112,6 +112,11 @@ export default function Tracker({
     );
   }
 
+  function handleLeadDeleted(id: string) {
+    setLeads((prev) => prev.filter((l) => l.id !== id));
+    setSelectedLeadId(null);
+  }
+
   function handleLeadUpdated(updated: LeadWithRelations) {
     setLeads((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
   }
@@ -207,6 +212,7 @@ export default function Tracker({
                 handleInteractionAdded(selectedLead.id, interaction, status)
               }
               onLeadUpdated={handleLeadUpdated}
+              onLeadDeleted={handleLeadDeleted}
             />
           </div>
         ) : (

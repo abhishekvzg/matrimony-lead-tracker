@@ -325,6 +325,15 @@ export async function uploadAttachment(
 export async function setProfilePicture(leadId: string, file: File): Promise<string> {
   const path = `${leadId}/dp-${crypto.randomUUID()}.jpg`;
 
+  // The picture being replaced, so its file can be removed afterwards —
+  // otherwise every re-crop leaves another orphan in the bucket forever.
+  const { data: current } = await supabaseAdmin()
+    .from("leads")
+    .select("profile_picture_url")
+    .eq("id", leadId)
+    .maybeSingle();
+  const previous = current?.profile_picture_url as string | null | undefined;
+
   const { error: uploadError } = await supabaseAdmin()
     .storage.from(LEAD_ATTACHMENTS_BUCKET)
     .upload(path, file, { contentType: file.type || "image/jpeg" });
@@ -337,5 +346,41 @@ export async function setProfilePicture(leadId: string, file: File): Promise<str
     .eq("id", leadId);
 
   if (error) throw error;
+
+  // Only after the row points at the new file, so a failure above can never
+  // leave the lead referencing a picture that's been deleted.
+  if (previous && previous !== path) {
+    await supabaseAdmin().storage.from(LEAD_ATTACHMENTS_BUCKET).remove([previous]);
+  }
+
   return path;
+}
+
+// Child rows (attachments, interactions, contacts) cascade on delete, but
+// stored files do not — they have to be removed explicitly or the bucket
+// keeps them forever.
+export async function deleteLead(leadId: string): Promise<void> {
+  const [{ data: lead }, { data: attachments }] = await Promise.all([
+    supabaseAdmin().from("leads").select("profile_picture_url").eq("id", leadId).maybeSingle(),
+    supabaseAdmin().from("attachments").select("file_url").eq("lead_id", leadId),
+  ]);
+
+  if (!lead) throw new Error("Lead not found");
+
+  const paths = [
+    ...(attachments ?? []).map((a) => a.file_url as string),
+    ...(lead.profile_picture_url ? [lead.profile_picture_url as string] : []),
+  ];
+
+  if (paths.length > 0) {
+    const { error: storageError } = await supabaseAdmin()
+      .storage.from(LEAD_ATTACHMENTS_BUCKET)
+      .remove(paths);
+    // A stale file is a smaller problem than a lead that refuses to delete,
+    // so storage failures don't block removing the record itself.
+    if (storageError) console.error("Failed to remove files for lead", leadId, storageError);
+  }
+
+  const { error } = await supabaseAdmin().from("leads").delete().eq("id", leadId);
+  if (error) throw error;
 }

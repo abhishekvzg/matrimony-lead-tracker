@@ -211,6 +211,18 @@ function fieldProperties(): Record<string, unknown> {
       };
     } else if (key === "nakshatra_padam") {
       props[key] = { type: "string", enum: ["1", "2", "3", "4"] };
+    } else if (key === "location") {
+      props[key] = {
+        type: "string",
+        description:
+          'Where the candidate currently lives, as a short place name only — "Hyderabad", "Seattle", "Bangalore, India". Never put a street address, door/flat number, visa status or work arrangement here; a full postal address belongs in "address".',
+      };
+    } else if (key === "address") {
+      props[key] = {
+        type: "string",
+        description:
+          "Full postal address when the source gives one, including door/flat number, street and PIN code.",
+      };
     } else if (key === "other_details") {
       props[key] = {
         type: "string",
